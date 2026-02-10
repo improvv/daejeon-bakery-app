@@ -19,7 +19,7 @@ class _MainScreenState extends State<MainScreen> {
   List<Bakery> _bakeries = [];
   bool _isLoading = false;
   int _selectedIndex = 0;
-  
+
   // 바텀시트 확장 상태
   bool _isBottomSheetExpanded = false;
 
@@ -136,8 +136,11 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 지도 영역 (placeholder)
-          const MapPlaceholder(),
+          // 지도 영역
+          MapPlaceholder(
+            bakeries: _bakeries,
+            onMarkerTap: _onBakeryTap,
+          ),
 
           // 상단 검색바
           Positioned(

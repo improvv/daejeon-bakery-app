@@ -45,5 +45,7 @@
 	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>GMSApiKey</key>
+	<string>AIzaSyCNTUeHYN3Ar_OiWRJ6pce3ZTk6J1yVQT4</string>
 </dict>
 </plist>
