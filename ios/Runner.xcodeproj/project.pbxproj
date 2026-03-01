@@ -140,6 +140,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				6B92C581BE7727A08155BF16 /* [CP] Embed Pods Frameworks */,
+				A1B2C3D4E5F67890A1B2C3D4 /* Inject Maps API Key */,
 			);
 			buildRules = (
 			);
@@ -242,6 +243,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		A1B2C3D4E5F67890A1B2C3D4 /* Inject Maps API Key */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Maps API Key";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "KEY_PROPERTIES=\"${SRCROOT}/../../key.properties\"\nif [ -f \"$KEY_PROPERTIES\" ]; then\n  MAPS_KEY=$(grep MAPS_API_KEY \"$KEY_PROPERTIES\" | cut -d '=' -f2)\n  if [ -n \"$MAPS_KEY\" ] && [ -f \"${BUILT_PRODUCTS_DIR}/Runner.app/Info.plist\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :GMSApiKey $MAPS_KEY\" \"${BUILT_PRODUCTS_DIR}/Runner.app/Info.plist\"\n  fi\nfi\n";
 		};
 		B4892B7C3A78DD2DC84E31CE /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
