@@ -228,7 +228,7 @@ class _MainScreenState extends State<MainScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
-        height: _isBottomSheetExpanded ? 450 : 180,
+        height: _isBottomSheetExpanded ? 650 : 180,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
