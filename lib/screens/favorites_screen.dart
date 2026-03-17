@@ -5,7 +5,9 @@ import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({Key? key}) : super(key: key);
+  final Function(int)? onNavigateToTab;
+
+  const FavoritesScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -89,6 +91,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (widget.onNavigateToTab != null) {
+              widget.onNavigateToTab!(0); // 0은 지도 탭(MainScreen)
+            } else if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: const Text(
           '즐겨찾기',
           style: TextStyle(

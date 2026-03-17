@@ -20,8 +20,8 @@ class _RootScreenState extends State<RootScreen> {
     super.initState();
     _screens = [
       MainScreen(onNavigateToTab: _onItemTapped),
-      const SearchScreen(),
-      const FavoritesScreen(),
+      SearchScreen(onNavigateToTab: _onItemTapped),
+      FavoritesScreen(onNavigateToTab: _onItemTapped),
     ];
   }
 
@@ -31,13 +31,32 @@ class _RootScreenState extends State<RootScreen> {
     });
   }
 
+  // 안드로이드 물리 백버튼 처리
+  Future<bool> _onWillPop() async {
+    if (_selectedIndex != 0) {
+      // 메인(지도) 탭이 아니면 메인 탭으로 이동하고 앱 종료 방지
+      setState(() {
+        _selectedIndex = 0;
+      });
+      return false; // pop 방지
+    }
+    // 메인 탭이면 앱을 종료하도록 true 반환
+    return true; 
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // 현재 탭에 맞는 화면만 body에 교체
-      body: _screens[_selectedIndex],
-      // 하단 네비게이션 바는 Root에서만 고정 담당
-      bottomNavigationBar: _buildBottomNavigationBar(),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        // 지도(GoogleMap)의 렌더링 성능과 재생성 시 발생하는 네이티브 메모리 크래시 방지 및 탭 전환 상태 유지를 위해 IndexedStack 사용
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: _screens,
+        ),
+        // 하단 네비게이션 바는 Root에서만 고정 담당
+        bottomNavigationBar: _buildBottomNavigationBar(),
+      ),
     );
   }
 

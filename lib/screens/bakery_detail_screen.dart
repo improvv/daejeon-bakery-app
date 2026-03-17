@@ -167,6 +167,11 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              color: Colors.white,
+              onPressed: () => Navigator.pop(context),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: _bakery!.imageUrls.isNotEmpty
                   ? ImageSlider(imageUrls: _bakery!.imageUrls)

@@ -6,7 +6,9 @@ import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  final Function(int)? onNavigateToTab;
+
+  const SearchScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -168,11 +170,10 @@ class _SearchScreenState extends State<SearchScreen> {
           IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
-              if (Navigator.canPop(context)) {
+              if (widget.onNavigateToTab != null) {
+                widget.onNavigateToTab!(0); // 0은 지도 탭(MainScreen)
+              } else if (Navigator.canPop(context)) {
                 Navigator.pop(context);
-              } else {
-                // 부모(RootScreen)의 탭 변경 콜백이 없으므로 직접 이벤트 전달은 어려우나
-                // 일반적으로 직접 탭을 눌러 이동하게 합니다.
               }
             },
           ),
@@ -185,7 +186,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: TextField(
                 controller: _searchController,
-                autofocus: true,
+                autofocus: false, // IndexedStack 렌더 시 키보드 팝업 방지
                 decoration: const InputDecoration(
                   hintText: '빵집 이름 검색',
                   border: InputBorder.none,
