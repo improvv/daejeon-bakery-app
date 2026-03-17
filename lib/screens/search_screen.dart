@@ -167,7 +167,14 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                // 부모(RootScreen)의 탭 변경 콜백이 없으므로 직접 이벤트 전달은 어려우나
+                // 일반적으로 직접 탭을 눌러 이동하게 합니다.
+              }
+            },
           ),
           Expanded(
             child: Container(
