@@ -15,12 +15,14 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
+enum BottomSheetState { hidden, collapsed, expanded }
+
 class _MainScreenState extends State<MainScreen> {
   final BakeryRepository _repository = BakeryRepository();
   List<Bakery> _bakeries = [];
   bool _isLoading = false;
 
-  bool _isBottomSheetExpanded = false;
+  BottomSheetState _bottomSheetState = BottomSheetState.collapsed;
 
   @override
   void initState() {
@@ -142,7 +144,8 @@ class _MainScreenState extends State<MainScreen> {
         if (widget.onNavigateToTab != null) {
           widget.onNavigateToTab!(1); // 1 is SearchScreen's index
         } else {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen()));
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => const SearchScreen()));
         }
       },
       child: Container(
@@ -170,19 +173,46 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  double _getBottomSheetHeight() {
+    switch (_bottomSheetState) {
+      case BottomSheetState.expanded:
+        return 650.0;
+      case BottomSheetState.collapsed:
+        return 220.0; // 기존 180보다 살짝 더 보여주는게 자연스럽습니다.
+      case BottomSheetState.hidden:
+        return 36.0; // 상하 margin 16 + 손잡이 height 4 = 36. 딱 손잡이만 보입니다.
+    }
+  }
+
   Widget _buildBottomSheet() {
     return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        if (details.primaryDelta! < -5) {
-          setState(() => _isBottomSheetExpanded = true);
-        } else if (details.primaryDelta! > 5) {
-          setState(() => _isBottomSheetExpanded = false);
-        }
+      onVerticalDragEnd: (details) {
+        final double velocity = details.primaryVelocity ?? 0;
+        final double threshold = 300.0; // 스와이프 민감도
+
+        setState(() {
+          if (velocity < -threshold) {
+            // 위로 드래그 (확장)
+            if (_bottomSheetState == BottomSheetState.hidden) {
+              _bottomSheetState = BottomSheetState.collapsed;
+            } else if (_bottomSheetState == BottomSheetState.collapsed) {
+              _bottomSheetState = BottomSheetState.expanded;
+            }
+          } else if (velocity > threshold) {
+            // 아래로 드래그 (축소)
+            if (_bottomSheetState == BottomSheetState.expanded) {
+              _bottomSheetState = BottomSheetState.collapsed;
+            } else if (_bottomSheetState == BottomSheetState.collapsed) {
+              _bottomSheetState = BottomSheetState.hidden;
+            }
+          }
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        height: _isBottomSheetExpanded ? 650 : 180,
+        curve: Curves.easeOutCubic,
+        height: _getBottomSheetHeight(),
+        clipBehavior: Clip.hardEdge, // 높이가 줄어들 때 내용물이 넘치지 않고 깔끔하게 잘리도록 설정
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -191,52 +221,66 @@ class _MainScreenState extends State<MainScreen> {
                 color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))
           ],
         ),
-        child: Column(
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(), // 레이아웃 스크롤 방지
+          child: SizedBox(
+            height: 650.0, // 최대 높이(expanded) 고정을 통해 Overflow(에러) 방지
+            child: Column(
+              children: [
+                // 스와이프 손잡이(handle)
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('가까운 빵집',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 4),
-                      Text('거리순 추천',
-                          style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('가까운 빵집',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 4),
+                          Text('거리순 추천',
+                              style:
+                                  TextStyle(fontSize: 13, color: Colors.grey)),
+                        ],
+                      ),
+                      Text('총 ${_bakeries.length}개',
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.grey)),
                     ],
                   ),
-                  Text('총 ${_bakeries.length}개',
-                      style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          padding: EdgeInsets.zero,
+                          // 확장(expanded) 상태일 때만 내부를 스크롤 할 수 있도록 허용 (아닐 땐 드래그용으로 잠금)
+                          physics:
+                              _bottomSheetState == BottomSheetState.expanded
+                                  ? const AlwaysScrollableScrollPhysics()
+                                  : const NeverScrollableScrollPhysics(),
+                          itemCount: _bakeries.length,
+                          itemBuilder: (context, index) {
+                            return BakeryListItem(
+                              bakery: _bakeries[index],
+                              onTap: () => _onBakeryTap(_bakeries[index]),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: _bakeries.length,
-                      itemBuilder: (context, index) {
-                        return BakeryListItem(
-                          bakery: _bakeries[index],
-                          onTap: () => _onBakeryTap(_bakeries[index]),
-                        );
-                      },
-                    ),
-            ),
-          ],
+          ),
         ),
       ),
     );
