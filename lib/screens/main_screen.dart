@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../widgets/bakery_list_item.dart';
@@ -21,6 +22,8 @@ class _MainScreenState extends State<MainScreen> {
   final BakeryRepository _repository = BakeryRepository();
   List<Bakery> _bakeries = [];
   bool _isLoading = false;
+
+  GoogleMapController? _mapController;
 
   BottomSheetState _bottomSheetState = BottomSheetState.collapsed;
 
@@ -110,6 +113,28 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Future<void> _moveToCurrentLocation() async {
+    try {
+      if (_mapController != null) {
+        // 실제 앱 배포 시에는 Geolocator 플러그인을 사용하여 사용자 실제 위치를 가져와야 합니다.
+        // 예: Position position = await Geolocator.getCurrentPosition();
+        // 임시로 대전역 근처 위치를 '현재 위치'라고 가정하고 이동합니다.
+        const LatLng mockCurrentLocation = LatLng(36.3325, 127.4342); 
+        
+        await _mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(mockCurrentLocation, 15.0),
+        );
+      }
+    } catch (e) {
+      // 위치 권한이 없거나 예외 발생 시 앱이 꺼지지 않도록 처리
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('현재 위치를 가져올 수 없습니다.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,6 +143,7 @@ class _MainScreenState extends State<MainScreen> {
           MapPlaceholder(
             bakeries: _bakeries,
             onMarkerTap: _onBakeryTap,
+            onMapCreated: (controller) => _mapController = controller,
           ),
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
@@ -125,11 +151,29 @@ class _MainScreenState extends State<MainScreen> {
             right: 16,
             child: _buildSearchBar(),
           ),
+          // 현재 위치로 이동하는 Floating Button (바텀시트가 최소화되었을 때만 우측 하단에 고정 표시)
+          Positioned(
+            right: 16,
+            bottom: 36 + 16, // BottomSheetState.hidden 시 높이(36) + 여백(16)
+            child: AnimatedScale(
+              scale: _bottomSheetState == BottomSheetState.hidden ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              child: FloatingActionButton(
+                heroTag: 'myLocationBtn',
+                onPressed: _moveToCurrentLocation,
+                backgroundColor: Colors.white,
+                elevation: 4,
+                shape: const CircleBorder(),
+                child: const Icon(Icons.my_location, color: Colors.blue),
+              ),
+            ),
+          ),
           if (_bakeries.isNotEmpty)
             Positioned(
               left: 0,
               right: 0,
-              // 수정됨: 바텀 네비게이션이 외부 RootScreen에 속하므로 바닥 여백 없이 0을 줍니다.
+              // 바텀 네비게이션이 외부 RootScreen에 속하므로 바닥 여백 없이 0을 줍니다.
               bottom: 0,
               child: _buildBottomSheet(),
             ),
