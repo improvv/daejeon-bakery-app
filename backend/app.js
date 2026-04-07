@@ -176,6 +176,36 @@ app.get('/api/v1/bakeries/:bakeryId', (req, res) => {
   res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", mockData));
 });
 
+/**
+ * @swagger
+ * /api/v1/users/search-history:
+ *   get:
+ *     summary: 2-1. 최근 검색어 조회
+ *     description: 검색 화면 진입 시 하단에 노출되는 검색 기록입니다.
+ *     tags: [User]
+ *     responses:
+ *       200:
+ *         description: 성공
+ */
+app.get('/api/v1/users/search-history', (req, res) => {
+  const mockData = {
+    keywords: [
+      {
+        id: 55,
+        keyword: "케이크",
+        searchedAt: "2026-01-26T18:20:00"
+      },
+      {
+        id: 54,
+        keyword: "유성구 맛집",
+        searchedAt: "2026-01-25T10:00:00"
+      }
+    ]
+  };
+
+  res.json(responseWrapper("SUCCESS", "최근 검색어 조회가 성공하였습니다.", mockData));
+});
+
 // 서버 실행
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
