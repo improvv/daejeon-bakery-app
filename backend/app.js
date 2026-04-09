@@ -314,9 +314,9 @@ app.delete('/api/v1/users/search-history/:historyId', (req, res) => {
   if (isNaN(historyId)) {
     return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 검색 기록 ID입니다."));
   }
-  
+
   // 실제 구현에서는 DB에서 해당 historyId 레코드를 삭제
-  
+
   res.json(responseWrapper("SUCCESS", "최근 검색어 삭제가 성공하였습니다."));
 });
 
@@ -392,19 +392,19 @@ app.delete('/api/v1/users/search-history/:historyId', (req, res) => {
  */
 app.post('/api/v1/bakeries/:bakeryId/favorite', (req, res) => {
   const bakeryId = parseInt(req.params.bakeryId, 10);
-  
+
   // 문자열 등 잘못된 입력 시 400 테스트
   if (isNaN(bakeryId)) {
     return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
   }
-  
+
   // Swagger 테스트 편의를 위해 특정 ID를 입력하면 에러가 뜨도록 분기 처리
   // (실제 구현에서는 Authorization 헤더를 까서 인증 상태를 체크해야 하지만, 현재 테스트가 막히지 않도록 변경)
-  if (bakeryId === 401) { 
+  if (bakeryId === 401) {
     return res.status(401).json(responseWrapper("ERROR_UNAUTHORIZED", "로그인이 필요합니다."));
   }
 
-  if (bakeryId === 404) { 
+  if (bakeryId === 404) {
     return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
   }
 
@@ -541,6 +541,134 @@ app.get('/api/v1/users/favorites', (req, res) => {
   };
 
   res.json(responseWrapper("SUCCESS", "내 즐겨찾기 목록 조회가 성공하였습니다.", mockData));
+});
+
+/**
+ * @swagger
+ * /api/v1/bakeries/{bakeryId}/reviews:
+ *   get:
+ *     summary: 4-1. 빵집 리뷰 리스트 조회
+ *     description: 상세 화면 하단 리뷰 영역 및 리뷰 더보기 화면에서 사용합니다. (Auth 불필요)
+ *     tags: [Review]
+ *     parameters:
+ *       - in: path
+ *         name: bakeryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 빵집 고유 ID
+ *         example: 120
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: 페이지 번호 (0부터 시작, 기본 0)
+ *       - in: query
+ *         name: size
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: 페이지 당 개수 (기본 10)
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [LATEST, RATING_HIGH]
+ *         description: 정렬 (LATEST 최신순, RATING_HIGH 별점순)
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *             example:
+ *               code: "SUCCESS"
+ *               message: "리뷰 목록 조회가 성공하였습니다."
+ *               data:
+ *                 pagination:
+ *                   currentPage: 0
+ *                   totalPages: 5
+ *                   totalElements: 48
+ *                   isLast: false
+ *                 reviews:
+ *                   - reviewId: 1001
+ *                     userInfo:
+ *                       userId: 50
+ *                       nickname: "빵순이"
+ *                       profileImageUrl: "https://cdn.bread.com/face.jpg"
+ *                     rating: 5
+ *                     content: "대전 오면 무조건 들러야 합니다. 튀소 최고!"
+ *                     reviewImages:
+ *                       - "https://cdn.bread.com/review1.jpg"
+ *                     createdAt: "2026-01-26"
+ *                   - reviewId: 1002
+ *                     userInfo:
+ *                       userId: 33
+ *                       nickname: "대전토박이"
+ *                       profileImageUrl: null
+ *                     rating: 4
+ *                     content: "사람이 너무 많아서 별 하나 뺍니다."
+ *                     reviewImages: []
+ *                     createdAt: "2026-01-25"
+ *       400:
+ *         description: 잘못된 파라미터 타입
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+app.get('/api/v1/bakeries/:bakeryId/reviews', (req, res) => {
+  const bakeryId = parseInt(req.params.bakeryId, 10);
+  
+  if (isNaN(bakeryId)) {
+    return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
+  }
+
+  // page, size 파라미터 파싱 (기본값 설정 적용)
+  const page = parseInt(req.query.page || 0, 10);
+  const size = parseInt(req.query.size || 10, 10);
+  const sort = req.query.sort || 'LATEST';
+
+  const mockData = {
+    pagination: {
+      currentPage: page,
+      totalPages: 5,
+      totalElements: 48,
+      isLast: page >= 4 // 5페이지(인덱스 4)면 마지막 페이지로 간주
+    },
+    reviews: [
+      {
+        reviewId: 1001,
+        userInfo: {
+          userId: 50,
+          nickname: "빵순이",
+          profileImageUrl: "https://cdn.bread.com/face.jpg"
+        },
+        rating: 5,
+        content: "대전 오면 무조건 들러야 합니다. 튀소 최고!",
+        reviewImages: [
+          "https://cdn.bread.com/review1.jpg"
+        ],
+        createdAt: "2026-01-26"
+      },
+      {
+        reviewId: 1002,
+        userInfo: {
+          userId: 33,
+          nickname: "대전토박이",
+          profileImageUrl: null
+        },
+        rating: 4,
+        content: "사람이 너무 많아서 별 하나 뺍니다.",
+        reviewImages: [],
+        createdAt: "2026-01-25"
+      }
+    ]
+  };
+
+  res.json(responseWrapper("SUCCESS", "리뷰 목록 조회가 성공하였습니다.", mockData));
 });
 
 // 서버 실행
