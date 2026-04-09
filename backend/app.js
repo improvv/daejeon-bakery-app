@@ -103,7 +103,8 @@ app.get('/swagger.json', (req, res) => {
  *         name: sort
  *         schema:
  *           type: string
- *         description: 정렬(DISTANCE, RATING, REVIEW)
+ *           enum: [DISTANCE, RATING, REVIEW, LATEST]
+ *         description: 정렬 (DISTANCE: 가까운 순, RATING: 별점 높은 순, REVIEW: 리뷰 많은 순, LATEST: 최신 순)
  *         example: DISTANCE
  *       - in: query
  *         name: filter
@@ -574,8 +575,9 @@ app.get('/api/v1/users/favorites', (req, res) => {
  *         name: sort
  *         schema:
  *           type: string
- *           enum: [LATEST, RATING_HIGH]
- *         description: 정렬 (LATEST 최신순, RATING_HIGH 별점순)
+ *           enum: [LATEST, RATING, REVIEW, DISTANCE]
+ *         description: 정렬 (LATEST: 최신순, RATING: 별점 높은 순 등 부록 명세 참고)
+ *         example: LATEST
  *     responses:
  *       200:
  *         description: 성공
