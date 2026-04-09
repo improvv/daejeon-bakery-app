@@ -206,6 +206,47 @@ app.get('/api/v1/users/search-history', (req, res) => {
   res.json(responseWrapper("SUCCESS", "최근 검색어 조회가 성공하였습니다.", mockData));
 });
 
+/**
+ * @swagger
+ * /api/v1/users/search-history/{historyId}:
+ *   delete:
+ *     summary: 2-2. 최근 검색어 삭제
+ *     description: 검색 기록의 'X' 버튼 클릭 시 특정 기록을 삭제합니다.
+ *     tags: [User]
+ *     parameters:
+ *       - in: path
+ *         name: historyId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 검색 기록 고유 ID
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   example: SUCCESS
+ *                 message:
+ *                   type: string
+ *                   example: 요청이 성공하였습니다.
+ *                 data:
+ *                   type: object
+ *                   nullable: true
+ *                   example: null
+ */
+app.delete('/api/v1/users/search-history/:historyId', (req, res) => {
+  const historyId = parseInt(req.params.historyId, 10);
+  
+  // 실제 구현에서는 DB에서 해당 historyId 레코드를 삭제
+  
+  res.json(responseWrapper("SUCCESS", "최근 검색어 삭제가 성공하였습니다."));
+});
+
 // 서버 실행
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
