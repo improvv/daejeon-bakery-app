@@ -1,3 +1,8 @@
+# API Keys / Secrets (절대 Git에 올리지 마세요)
+key.properties
+.env
+.env.local
+
 # Miscellaneous
 *.class
 *.log

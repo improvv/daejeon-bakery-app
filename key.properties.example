@@ -1,0 +1,11 @@
+# Google Maps API 키를 아래에 입력하세요.
+# 이 파일을 key.properties 로 복사한 뒤 사용하세요.
+# key.properties 는 .gitignore 에 의해 Git에 올라가지 않습니다.
+#
+# 적용 플랫폼:
+# - Android: build.gradle 에서 자동 주입
+# - iOS: Xcode 빌드 시 Run Script 에서 자동 주입
+# - Web: dart run scripts/inject_maps_key.dart run   (개발)
+#         dart run scripts/inject_maps_key.dart build (빌드)
+
+MAPS_API_KEY=여기에_API_키_입력
