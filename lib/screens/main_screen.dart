@@ -58,7 +58,7 @@ class _MainScreenState extends State<MainScreen> {
         distance: 0.35,
         openingHours: '매일 08:00 - 20:00',
         specialMenu: '튀김소보루, 부추빵, 판도로',
-        amenities: ['주차가능', 'WiFi'],
+        amenities: ['PARKING', 'WIFI'],
       ),
       Bakery(
         id: 2,
@@ -73,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
         distance: 0.62,
         openingHours: '화-일 10:00 - 21:00',
         specialMenu: '크루아상, 바게트',
-        amenities: ['포장가능'],
+        amenities: ['PACKING'],
       ),
       Bakery(
         id: 3,
@@ -88,7 +88,7 @@ class _MainScreenState extends State<MainScreen> {
         distance: 0.89,
         openingHours: '매일 09:00 - 22:00',
         specialMenu: '수제빵, 케이크',
-        amenities: ['주차가능', '포장가능'],
+        amenities: ['PARKING', 'PACKING'],
       ),
     ];
 
