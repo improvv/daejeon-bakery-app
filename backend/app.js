@@ -419,6 +419,130 @@ app.post('/api/v1/bakeries/:bakeryId/favorite', (req, res) => {
   res.json(responseWrapper("SUCCESS", "즐겨찾기 상태가 변경되었습니다.", mockData));
 });
 
+/**
+ * @swagger
+ * /api/v1/users/favorites:
+ *   get:
+ *     summary: 3-2. 내 즐겨찾기 목록 조회
+ *     description: 즐겨찾기 탭에서 내가 찜한 빵집들을 모아봅니다. (Auth 필수)
+ *     tags: [User]
+ *     parameters:
+ *       - in: query
+ *         name: lat
+ *         schema:
+ *           type: number
+ *           format: double
+ *         description: 사용자 현재 위도 (옵션)
+ *         example: 36.3504
+ *       - in: query
+ *         name: lon
+ *         schema:
+ *           type: number
+ *           format: double
+ *         description: 사용자 현재 경도 (옵션)
+ *         example: 127.3845
+ *       - in: query
+ *         name: test
+ *         schema:
+ *           type: string
+ *         description: (테스트용) '401' 입력 시 인증 에러 테스트
+ *         example: ""
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *                   example: SUCCESS
+ *                 message:
+ *                   type: string
+ *                   example: 요청이 성공하였습니다.
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalCount:
+ *                       type: integer
+ *                       example: 5
+ *                     favorites:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                             example: 120
+ *                           name:
+ *                             type: string
+ *                             example: 성심당 본점
+ *                           thumbnailUrl:
+ *                             type: string
+ *                             example: https://cdn.bread.com/img/120_main.jpg
+ *                           address:
+ *                             type: string
+ *                             example: 대전광역시 중구 은행동
+ *                           rating:
+ *                             type: number
+ *                             example: 4.8
+ *                           reviewCount:
+ *                             type: integer
+ *                             example: 15234
+ *                           distance:
+ *                             type: number
+ *                             nullable: true
+ *                             example: null
+ *       401:
+ *         description: 인증되지 않은 사용자
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               code: ERROR_UNAUTHORIZED
+ *               message: 로그인이 필요합니다.
+ *               data: null
+ */
+app.get('/api/v1/users/favorites', (req, res) => {
+  const { lat, lon, test } = req.query;
+
+  // 테스트 편의성을 위해: test === '401' 파라미터를 넘길 때만 에러 발생
+  if (test === '401') {
+    return res.status(401).json(responseWrapper("ERROR_UNAUTHORIZED", "로그인이 필요합니다."));
+  }
+
+  // 좌표가 넘어오면(lat & lon) 거리(distance)를 계산해주고, 아니면 null 반환
+  const hasLocation = lat && lon;
+
+  const mockData = {
+    totalCount: 5,
+    favorites: [
+      {
+        id: 120,
+        name: "성심당 본점",
+        thumbnailUrl: "https://cdn.bread.com/img/120_main.jpg",
+        address: "대전광역시 중구 은행동",
+        rating: 4.8,
+        reviewCount: 15234,
+        distance: hasLocation ? 350 : null
+      },
+      {
+        id: 121,
+        name: "하레하레 갤러리아점",
+        thumbnailUrl: "https://cdn.bread.com/img/121_main.jpg",
+        address: "대전광역시 서구 둔산동",
+        rating: 4.6,
+        reviewCount: 890,
+        distance: hasLocation ? 800 : null
+      }
+    ]
+  };
+
+  res.json(responseWrapper("SUCCESS", "내 즐겨찾기 목록 조회가 성공하였습니다.", mockData));
+});
+
 // 서버 실행
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
