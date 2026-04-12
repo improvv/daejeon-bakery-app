@@ -5,26 +5,36 @@ import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({Key? key}) : super(key: key);
+  final Function(int)? onNavigateToTab;
+
+  const FavoritesScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen> {
+class _FavoritesScreenState extends State<FavoritesScreen>
+    with SingleTickerProviderStateMixin {
   final BakeryRepository _repository = BakeryRepository();
   List<Bakery> _favorites = [];
   bool _isLoading = true;
 
+  late AnimationController _listAnimController;
+
   @override
   void initState() {
     super.initState();
+    _listAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     _loadFavorites();
   }
 
   @override
   void dispose() {
     _repository.dispose();
+    _listAnimController.dispose();
     super.dispose();
   }
 
@@ -70,6 +80,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         _isLoading = false;
       });
     }
+
+    if (_favorites.isNotEmpty) {
+      _listAnimController.forward(from: 0);
+    }
   }
 
   void _onBakeryTap(Bakery bakery) {
@@ -79,7 +93,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         builder: (context) => BakeryDetailScreen(bakeryId: bakery.id),
       ),
     ).then((_) {
-      // 상세 화면에서 돌아왔을 때 목록 새로고침
       _loadFavorites();
     });
   }
@@ -87,8 +100,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F8F8),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (widget.onNavigateToTab != null) {
+              widget.onNavigateToTab!(0);
+            } else if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            }
+          },
+        ),
         title: const Text(
           '즐겨찾기',
           style: TextStyle(
@@ -113,17 +136,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.star_border,
-            size: 80,
-            color: Colors.grey[300],
+          Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF3E4),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.star_outline_rounded,
+              size: 52,
+              color: const Color(0xFFD97941).withValues(alpha: 0.5),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           const Text(
             '아직 즐겨찾기한 빵집이 없어요',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF2C2C2C),
             ),
           ),
           const SizedBox(height: 8),
@@ -132,8 +164,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
-              height: 1.5,
+              color: Colors.grey[500],
+              height: 1.6,
             ),
           ),
         ],
@@ -146,9 +178,28 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _favorites.length,
       itemBuilder: (context, index) {
-        return BakeryListItem(
-          bakery: _favorites[index],
-          onTap: () => _onBakeryTap(_favorites[index]),
+        // 각 아이템마다 staggered fade+slide 애니메이션
+        final itemAnim = CurvedAnimation(
+          parent: _listAnimController,
+          curve: Interval(
+            (index * 0.15).clamp(0.0, 0.7),
+            ((index * 0.15) + 0.4).clamp(0.0, 1.0),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+        return AnimatedBuilder(
+          animation: itemAnim,
+          builder: (context, child) => Opacity(
+            opacity: itemAnim.value,
+            child: Transform.translate(
+              offset: Offset(0, 24 * (1 - itemAnim.value)),
+              child: child,
+            ),
+          ),
+          child: BakeryListItem(
+            bakery: _favorites[index],
+            onTap: () => _onBakeryTap(_favorites[index]),
+          ),
         );
       },
     );

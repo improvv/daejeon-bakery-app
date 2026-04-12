@@ -5,11 +5,13 @@ import '../models/bakery.dart';
 class MapPlaceholder extends StatefulWidget {
   final List<Bakery> bakeries;
   final Function(Bakery)? onMarkerTap;
+  final void Function(GoogleMapController)? onMapCreated;
 
   const MapPlaceholder({
     Key? key,
     this.bakeries = const [],
     this.onMarkerTap,
+    this.onMapCreated,
   }) : super(key: key);
 
   @override
@@ -59,6 +61,9 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
       markers: _buildMarkers(),
       onMapCreated: (controller) {
         _mapController = controller;
+        if (widget.onMapCreated != null) {
+          widget.onMapCreated!(controller);
+        }
       },
       myLocationEnabled: false,
       myLocationButtonEnabled: false,

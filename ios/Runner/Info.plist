@@ -46,6 +46,6 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>GMSApiKey</key>
-	<string>REPLACE_AT_BUILD</string>
+	<string>$(MAPS_API_KEY)</string>
 </dict>
 </plist>

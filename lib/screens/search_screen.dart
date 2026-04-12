@@ -6,7 +6,9 @@ import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  final Function(int)? onNavigateToTab;
+
+  const SearchScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -15,10 +17,10 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final BakeryRepository _repository = BakeryRepository();
   final TextEditingController _searchController = TextEditingController();
-  
+
   List<SearchHistory> _searchHistory = [];
   List<Bakery> _searchResults = [];
-  DistrictFilter _selectedDistrict = DistrictFilter.all;
+  Set<DistrictFilter> _selectedDistricts = {DistrictFilter.all};
   bool _isLoading = false;
   bool _isSearching = false;
 
@@ -80,11 +82,17 @@ class _SearchScreenState extends State<SearchScreen> {
       _isSearching = true;
     });
 
+    final selectedDistrictNames = _selectedDistricts
+        .where((district) => district != DistrictFilter.all)
+        .map((district) => district.displayName)
+        .toList();
+
+    final districtQuery =
+        selectedDistrictNames.length == 1 ? selectedDistrictNames.first : null;
+
     final response = await _repository.getBakeries(
       keyword: keyword,
-      district: _selectedDistrict != DistrictFilter.all 
-          ? _selectedDistrict.displayName 
-          : null,
+      district: districtQuery,
     );
 
     setState(() {
@@ -145,9 +153,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
             // 콘텐츠 영역
             Expanded(
-              child: _isSearching
-                  ? _buildSearchResults()
-                  : _buildRecentSearches(),
+              child:
+                  _isSearching ? _buildSearchResults() : _buildRecentSearches(),
             ),
           ],
         ),
@@ -162,7 +169,13 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              if (widget.onNavigateToTab != null) {
+                widget.onNavigateToTab!(0); // 0은 지도 탭(MainScreen)
+              } else if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              }
+            },
           ),
           Expanded(
             child: Container(
@@ -173,7 +186,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: TextField(
                 controller: _searchController,
-                autofocus: true,
+                autofocus: false, // IndexedStack 렌더 시 키보드 팝업 방지
                 decoration: const InputDecoration(
                   hintText: '빵집 이름 검색',
                   border: InputBorder.none,
@@ -197,9 +210,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDistrictFilters() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -211,22 +223,31 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Expanded(
+          SizedBox(
+            height: 36,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: DistrictFilter.values.length,
               itemBuilder: (context, index) {
                 final filter = DistrictFilter.values[index];
-                final isSelected = _selectedDistrict == filter;
+                final isSelected = filter == DistrictFilter.all
+                    ? _selectedDistricts.contains(DistrictFilter.all)
+                    : _selectedDistricts.contains(filter);
 
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(filter.displayName),
+                    label: Text(
+                      filter.displayName,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {
-                        _selectedDistrict = filter;
+                        _toggleDistrictSelection(filter);
                       });
                       if (_searchController.text.isNotEmpty) {
                         _search(_searchController.text);
@@ -249,6 +270,28 @@ class _SearchScreenState extends State<SearchScreen> {
         ],
       ),
     );
+  }
+
+  void _toggleDistrictSelection(DistrictFilter filter) {
+    if (filter == DistrictFilter.all) {
+      _selectedDistricts = {DistrictFilter.all};
+      return;
+    }
+
+    final nextSelection = {..._selectedDistricts}..remove(DistrictFilter.all);
+
+    if (nextSelection.contains(filter)) {
+      nextSelection.remove(filter);
+    } else {
+      nextSelection.add(filter);
+    }
+
+    if (nextSelection.isEmpty) {
+      _selectedDistricts = {DistrictFilter.all};
+      return;
+    }
+
+    _selectedDistricts = nextSelection;
   }
 
   Widget _buildRecentSearches() {

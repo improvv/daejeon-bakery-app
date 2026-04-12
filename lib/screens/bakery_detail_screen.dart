@@ -69,7 +69,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
           distance: 0.35,
           openingHours: '매일 08:00 - 20:00',
           specialMenu: '튀김소보루, 부추빵, 판도로, 앙버터바게트',
-          amenities: ['주차가능', 'WiFi', '포장가능'],
+          amenities: ['PARKING', 'WIFI', 'PACKING'],
           isFavorite: false,
         );
         _isFavorite = false;
@@ -167,6 +167,11 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              color: Colors.white,
+              onPressed: () => Navigator.pop(context),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: _bakery!.imageUrls.isNotEmpty
                   ? ImageSlider(imageUrls: _bakery!.imageUrls)
@@ -281,7 +286,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            _getAmenityIcon(amenity) + amenity,
+                            _getAmenityLabel(amenity),
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFFB85E2E),
@@ -435,10 +440,20 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
     );
   }
 
-  String _getAmenityIcon(String amenity) {
-    if (amenity.contains('주차')) return '🅿️ ';
-    if (amenity.contains('WiFi') || amenity.contains('와이파이')) return '📶 ';
-    if (amenity.contains('포장')) return '📦 ';
-    return '';
+  String _getAmenityLabel(String amenity) {
+    switch (amenity) {
+      case 'PARKING':
+        return '🅿️ 주차가능';
+      case 'PACKING':
+        return '📦 포장가능';
+      case 'DELIVERY':
+        return '🚚 배달가능';
+      case 'WIFI':
+        return '📶 와이파이';
+      case 'RESTROOM':
+        return '🚻 화장실';
+      default:
+        return amenity;
+    }
   }
 }
