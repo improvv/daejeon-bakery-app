@@ -6,12 +6,14 @@ class MapPlaceholder extends StatefulWidget {
   final List<Bakery> bakeries;
   final Function(Bakery)? onMarkerTap;
   final void Function(GoogleMapController)? onMapCreated;
+  final double bottomPadding;
 
   const MapPlaceholder({
     Key? key,
     this.bakeries = const [],
     this.onMarkerTap,
     this.onMapCreated,
+    this.bottomPadding = 0.0,
   }) : super(key: key);
 
   @override
@@ -69,6 +71,7 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
+      padding: EdgeInsets.only(bottom: widget.bottomPadding),
     );
   }
 }
