@@ -79,10 +79,11 @@ class _BakeryListItemState extends State<BakeryListItem>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(
-                      Icons.bakery_dining,
-                      color: Color(0xFFD97941),
-                      size: 32,
+                    Image.asset(
+                      'assets/dreamdol.png',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.contain,
                     ),
                     if (widget.bakery.isFavorite)
                       Positioned(

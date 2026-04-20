@@ -121,25 +121,71 @@ class _SplashScreenState extends State<SplashScreen>
                     opacity: _fadeAnim,
                     child: ScaleTransition(
                       scale: _scaleAnim,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD97941).withValues(alpha: 0.25),
-                              blurRadius: 32,
-                              offset: const Offset(0, 12),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // 가장 바깥 글로우 레이어
+                          Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  const Color(0xFFD97941).withValues(alpha: 0.18),
+                                  const Color(0xFFFFD9A8).withValues(alpha: 0.08),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.6, 1.0],
+                              ),
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.bakery_dining,
-                          size: 62,
-                          color: Color(0xFFD97941),
-                        ),
+                          ),
+                          // 중간 글로우 레이어
+                          Container(
+                            width: 160,
+                            height: 160,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  const Color(0xFFD97941).withValues(alpha: 0.22),
+                                  const Color(0xFFFFD9A8).withValues(alpha: 0.12),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.65, 1.0],
+                              ),
+                            ),
+                          ),
+                          // 흰 원 + 이미지
+                          Container(
+                            width: 148,
+                            height: 148,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFD97941).withValues(alpha: 0.20),
+                                  blurRadius: 24,
+                                  spreadRadius: 2,
+                                  offset: const Offset(0, 6),
+                                ),
+                                BoxShadow(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Image.asset(
+                                'assets/dreamdol.png',
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

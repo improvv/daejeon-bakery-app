@@ -136,18 +136,11 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
+          Image.asset(
+            'assets/dreamdol.png',
             width: 100,
             height: 100,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFF3E4),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.star_outline_rounded,
-              size: 52,
-              color: const Color(0xFFD97941).withValues(alpha: 0.5),
-            ),
+            fit: BoxFit.contain,
           ),
           const SizedBox(height: 24),
           const Text(

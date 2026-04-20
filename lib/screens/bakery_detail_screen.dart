@@ -176,9 +176,21 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
               background: _bakery!.imageUrls.isNotEmpty
                   ? ImageSlider(imageUrls: _bakery!.imageUrls)
                   : Container(
-                      color: const Color(0xFFF5E6D3),
-                      child: const Center(
-                        child: Icon(Icons.bakery_dining, size: 80, color: Color(0xFFD97941)),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFFFF3E4), Color(0xFFFFDDB8), Color(0xFFD97941)],
+                          stops: [0.0, 0.6, 1.0],
+                        ),
+                      ),
+                      child: Center(
+                        child: Image.asset(
+                          'assets/dreamdol.png',
+                          width: 160,
+                          height: 160,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
             ),
