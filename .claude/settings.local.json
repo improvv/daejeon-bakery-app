@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/jinjeong/flutter/flutter/bin/flutter emulators *)"
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../models/search_history.dart';
+import '../theme/app_colors.dart';
 import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
@@ -39,89 +40,43 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _loadSearchHistory() async {
     final response = await _repository.getSearchHistory();
-
-    if (response.isSuccess && response.data != null) {
-      setState(() {
-        _searchHistory = response.data!;
-      });
-    } else {
-      // Mock 데이터
-      setState(() {
-        _searchHistory = [
-          SearchHistory(
-            id: 1,
-            keyword: '성심당',
-            searchedAt: DateTime.now().subtract(const Duration(hours: 2)),
-          ),
-          SearchHistory(
-            id: 2,
-            keyword: '빵긍정',
-            searchedAt: DateTime.now().subtract(const Duration(days: 1)),
-          ),
-          SearchHistory(
-            id: 3,
-            keyword: '오븐이야기',
-            searchedAt: DateTime.now().subtract(const Duration(days: 3)),
-          ),
-        ];
-      });
-    }
+    setState(() {
+      _searchHistory = response.isSuccess && response.data != null
+          ? response.data!
+          : [
+              SearchHistory(id: 1, keyword: '성심당',   searchedAt: DateTime.now().subtract(const Duration(hours: 2))),
+              SearchHistory(id: 2, keyword: '빵긍정',   searchedAt: DateTime.now().subtract(const Duration(days: 1))),
+              SearchHistory(id: 3, keyword: '오븐이야기', searchedAt: DateTime.now().subtract(const Duration(days: 3))),
+            ];
+    });
   }
 
   Future<void> _search(String keyword) async {
     if (keyword.trim().isEmpty) {
-      setState(() {
-        _isSearching = false;
-        _searchResults = [];
-      });
+      setState(() { _isSearching = false; _searchResults = []; });
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _isSearching = true;
-    });
+    setState(() { _isLoading = true; _isSearching = true; });
 
     final selectedDistrictNames = _selectedDistricts
-        .where((district) => district != DistrictFilter.all)
-        .map((district) => district.displayName)
+        .where((d) => d != DistrictFilter.all)
+        .map((d) => d.displayName)
         .toList();
+    final districtQuery = selectedDistrictNames.length == 1 ? selectedDistrictNames.first : null;
 
-    final districtQuery =
-        selectedDistrictNames.length == 1 ? selectedDistrictNames.first : null;
-
-    final response = await _repository.getBakeries(
-      keyword: keyword,
-      district: districtQuery,
-    );
+    final response = await _repository.getBakeries(keyword: keyword, district: districtQuery);
 
     setState(() {
       _isLoading = false;
-      if (response.isSuccess && response.data != null) {
-        _searchResults = response.data!;
-      } else {
-        // Mock 검색 결과
-        _searchResults = [
-          Bakery(
-            id: 1,
-            name: '성심당 본점',
-            address: '대전광역시 중구 은행동 145',
-            latitude: 36.3271,
-            longitude: 127.4275,
-            rating: 4.8,
-            reviewCount: 1523,
-            distance: 0.35,
-          ),
-        ];
-      }
+      _searchResults = response.isSuccess && response.data != null
+          ? response.data!
+          : [Bakery(id: 1, name: '성심당 본점', address: '대전광역시 중구 은행동 145', latitude: 36.3271, longitude: 127.4275, rating: 4.8, reviewCount: 1523, distance: 0.35)];
     });
   }
 
   Future<void> _deleteSearchHistory(int historyId) async {
     await _repository.deleteSearchHistory(historyId);
-    setState(() {
-      _searchHistory.removeWhere((item) => item.id == historyId);
-    });
+    setState(() => _searchHistory.removeWhere((item) => item.id == historyId));
   }
 
   void _onHistoryTap(String keyword) {
@@ -132,8 +87,15 @@ class _SearchScreenState extends State<SearchScreen> {
   void _onBakeryTap(Bakery bakery) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => BakeryDetailScreen(bakeryId: bakery.id),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => BakeryDetailScreen(bakeryId: bakery.id),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        transitionsBuilder: (_, animation, __, child) => SlideTransition(
+          position: Tween<Offset>(begin: const Offset(1.0, 0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
       ),
     );
   }
@@ -141,20 +103,14 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surfaceAlt,
       body: SafeArea(
         child: Column(
           children: [
-            // 검색 헤더
             _buildSearchHeader(),
-
-            // 위치 필터
             _buildDistrictFilters(),
-
-            // 콘텐츠 영역
             Expanded(
-              child:
-                  _isSearching ? _buildSearchResults() : _buildRecentSearches(),
+              child: _isSearching ? _buildSearchResults() : _buildRecentSearches(),
             ),
           ],
         ),
@@ -163,15 +119,16 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSearchHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(8, 12, 16, 12),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
             onPressed: () {
               if (widget.onNavigateToTab != null) {
-                widget.onNavigateToTab!(0); // 0은 지도 탭(MainScreen)
+                widget.onNavigateToTab!(0);
               } else if (Navigator.canPop(context)) {
                 Navigator.pop(context);
               }
@@ -179,27 +136,36 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
           Expanded(
             child: Container(
-              height: 52,
+              height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F8F8),
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border, width: 1),
               ),
               child: TextField(
                 controller: _searchController,
-                autofocus: false, // IndexedStack 렌더 시 키보드 팝업 방지
-                decoration: const InputDecoration(
-                  hintText: '빵집 이름 검색',
+                autofocus: false,
+                style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: '빵집 이름, 메뉴 검색',
+                  hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 15),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() { _isSearching = false; _searchResults = []; });
+                          },
+                        )
+                      : null,
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 onSubmitted: _search,
                 onChanged: (value) {
-                  if (value.isEmpty) {
-                    setState(() {
-                      _isSearching = false;
-                      _searchResults = [];
-                    });
-                  }
+                  setState(() {});
+                  if (value.isEmpty) setState(() { _isSearching = false; _searchResults = []; });
                 },
               ),
             ),
@@ -210,23 +176,19 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDistrictFilters() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '위치 필터',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          const Divider(height: 1, color: AppColors.divider),
           const SizedBox(height: 12),
           SizedBox(
-            height: 36,
+            height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
               itemCount: DistrictFilter.values.length,
               itemBuilder: (context, index) {
                 final filter = DistrictFilter.values[index];
@@ -237,31 +199,30 @@ class _SearchScreenState extends State<SearchScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(
-                      filter.displayName,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                    label: Text(filter.displayName),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
                     selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        _toggleDistrictSelection(filter);
-                      });
-                      if (_searchController.text.isNotEmpty) {
-                        _search(_searchController.text);
-                      }
+                    showCheckmark: false,
+                    onSelected: (_) {
+                      setState(() => _toggleDistrictSelection(filter));
+                      if (_searchController.text.isNotEmpty) _search(_searchController.text);
                     },
-                    backgroundColor: const Color(0xFFF8F8F8),
-                    selectedColor: const Color(0xFFD97941),
+                    // 선택 안 된 상태 — outlined
+                    backgroundColor: AppColors.surface,
+                    side: BorderSide(
+                      color: isSelected ? AppColors.crustBrown : AppColors.border,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                    // 선택된 상태 — 크림 배경
+                    selectedColor: AppColors.creamFill,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: isSelected ? AppColors.crustBrown : AppColors.textSec,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
                 );
               },
@@ -273,97 +234,84 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _toggleDistrictSelection(DistrictFilter filter) {
-    if (filter == DistrictFilter.all) {
-      _selectedDistricts = {DistrictFilter.all};
-      return;
-    }
-
-    final nextSelection = {..._selectedDistricts}..remove(DistrictFilter.all);
-
-    if (nextSelection.contains(filter)) {
-      nextSelection.remove(filter);
-    } else {
-      nextSelection.add(filter);
-    }
-
-    if (nextSelection.isEmpty) {
-      _selectedDistricts = {DistrictFilter.all};
-      return;
-    }
-
-    _selectedDistricts = nextSelection;
+    if (filter == DistrictFilter.all) { _selectedDistricts = {DistrictFilter.all}; return; }
+    final next = {..._selectedDistricts}..remove(DistrictFilter.all);
+    next.contains(filter) ? next.remove(filter) : next.add(filter);
+    _selectedDistricts = next.isEmpty ? {DistrictFilter.all} : next;
   }
 
   Widget _buildRecentSearches() {
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '최근 검색',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+      children: [
+        const Text('최근 검색', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        const SizedBox(height: 12),
+        if (_searchHistory.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Text('최근 검색 내역이 없습니다',
+                  style: TextStyle(color: AppColors.textHint, fontSize: 14)),
             ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _searchHistory.isEmpty
-                ? const Center(
-                    child: Text(
-                      '최근 검색 내역이 없습니다',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _searchHistory.length,
-                    itemBuilder: (context, index) {
-                      final history = _searchHistory[index];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(
-                          Icons.history,
-                          color: Colors.grey,
-                          size: 20,
-                        ),
-                        title: Text(
-                          history.keyword,
-                          style: const TextStyle(fontSize: 15),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          color: Colors.grey,
-                          onPressed: () => _deleteSearchHistory(history.id),
-                        ),
-                        onTap: () => _onHistoryTap(history.keyword),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+          )
+        else
+          ..._searchHistory.map((history) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.history_rounded, color: AppColors.textHint, size: 20),
+            title: Text(history.keyword,
+                style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
+            trailing: IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
+              onPressed: () => _deleteSearchHistory(history.id),
+            ),
+            onTap: () => _onHistoryTap(history.keyword),
+          )),
+      ],
     );
   }
 
   Widget _buildSearchResults() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: 4,
+        itemBuilder: (_, __) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          height: 90,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      );
     }
 
     if (_searchResults.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              '검색 결과가 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            Icon(Icons.search_off_rounded, size: 64, color: AppColors.border),
+            const SizedBox(height: 16),
+            Text('"${_searchController.text}" 검색 결과가 없어요',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Text('다른 키워드로 검색하거나\n필터를 변경해보세요',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppColors.textSec, height: 1.6)),
+            const SizedBox(height: 24),
+            OutlinedButton(
+              onPressed: () {
+                _searchController.clear();
+                setState(() { _isSearching = false; _searchResults = []; _selectedDistricts = {DistrictFilter.all}; });
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.crustBrown,
+                side: const BorderSide(color: AppColors.crustBrown),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
+              child: const Text('검색 초기화', style: TextStyle(fontWeight: FontWeight.w500)),
             ),
           ],
         ),
@@ -371,14 +319,12 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        return BakeryListItem(
-          bakery: _searchResults[index],
-          onTap: () => _onBakeryTap(_searchResults[index]),
-        );
-      },
+      itemBuilder: (context, index) => BakeryListItem(
+        bakery: _searchResults[index],
+        onTap: () => _onBakeryTap(_searchResults[index]),
+      ),
     );
   }
 }
