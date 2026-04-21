@@ -28,5 +28,5 @@ class AppColors {
   static const closedRed   = Color(0xFFD94F3D); // 영업 종료
 
   // ── 지도 전용 ──────────────────────────────────────
-  static const myLocation  = Color(0xFF3B82F6); // 현재 위치 (빵집 마커와 완전히 다른 온도)
+  static const myLocation  = Color(0xFFE8973A); // 현재 위치 — 카라멜 앰버 (빵집 마커보다 밝고 원형으로 구분)
 }

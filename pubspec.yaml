@@ -26,8 +26,9 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/dreamdol.png"
   min_sdk_android: 21
-  background_color: "#FFF3E4"
-  adaptive_icon_background: "#FFF3E4"
+  background_color: "#4A2010"
+  remove_alpha_ios: true
+  adaptive_icon_background: "#4A2010"
   adaptive_icon_foreground: "assets/dreamdol.png"
 
 flutter:

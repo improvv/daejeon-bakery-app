@@ -61,20 +61,20 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
       const Offset(cx, cy + 1.5),
       size * 0.30,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.22)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        ..color = const Color(0xFFC8622A).withValues(alpha: 0.28)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
-    // 흰 테두리 링
+    // 크림 테두리 링
     canvas.drawCircle(
       const Offset(cx, cy),
-      size * 0.34,
-      Paint()..color = Colors.white,
+      size * 0.36,
+      Paint()..color = const Color(0xFFFDF0DC),
     );
-    // 파란 채움
+    // 카라멜 채움
     canvas.drawCircle(
       const Offset(cx, cy),
-      size * 0.24,
-      Paint()..color = const Color(0xFF4A90D9),
+      size * 0.30,
+      Paint()..color = const Color(0xFFE8973A),
     );
 
     final img = await recorder
@@ -148,8 +148,8 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
         circleId: const CircleId('current_location_halo'),
         center: widget.currentLocation!,
         radius: 120, // 미터 단위
-        fillColor: const Color(0xFF4A90D9).withValues(alpha: 0.13),
-        strokeColor: const Color(0xFF4A90D9).withValues(alpha: 0.35),
+        fillColor: const Color(0xFFE8973A).withValues(alpha: 0.10),
+        strokeColor: const Color(0xFFE8973A).withValues(alpha: 0.30),
         strokeWidth: 1,
       ),
     };

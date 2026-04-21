@@ -103,7 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surfaceAlt,
+      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -119,8 +119,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSearchHeader() {
-    return Container(
-      color: AppColors.surface,
+    return Padding(
       padding: const EdgeInsets.fromLTRB(8, 12, 16, 12),
       child: Row(
         children: [
@@ -176,8 +175,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDistrictFilters() {
-    return Container(
-      color: AppColors.surface,
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
