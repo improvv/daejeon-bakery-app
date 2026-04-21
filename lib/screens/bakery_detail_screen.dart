@@ -195,7 +195,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                         ),
                       ),
                       child: Center(
-                        child: Image.asset('assets/dreamdol.png', width: 160, height: 160, fit: BoxFit.contain),
+                        child: Image.asset('assets/logo.png', width: 160, height: 160, fit: BoxFit.contain),
                       ),
                     ),
             ),

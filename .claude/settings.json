@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/Users/jinjeong/flutter/flutter/bin/dart run *)"
+      "Bash(/Users/jinjeong/flutter/flutter/bin/dart run *)",
+      "Bash(flutter --version)"
     ]
   }
 }

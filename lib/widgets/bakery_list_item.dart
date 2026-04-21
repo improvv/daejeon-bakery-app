@@ -80,7 +80,7 @@ class _BakeryListItemState extends State<BakeryListItem>
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Image.asset('assets/dreamdol.png', fit: BoxFit.contain),
+                      child: Image.asset('assets/logo.png', fit: BoxFit.contain),
                     ),
                   ),
                   if (widget.bakery.isFavorite)

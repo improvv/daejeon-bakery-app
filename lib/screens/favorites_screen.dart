@@ -112,7 +112,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset('assets/dreamdol.png', width: 110, fit: BoxFit.contain),
+          Image.asset('assets/logo.png', width: 110, fit: BoxFit.contain),
           const SizedBox(height: 24),
           const Text(
             '아직 즐겨찾기한 빵집이 없어요',

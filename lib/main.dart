@@ -12,7 +12,7 @@ class DaejeonBakeryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '대빵지도',
+      title: '대전 빵사대',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: AppColors.crustBrown,
@@ -98,7 +98,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: ScaleTransition(
             scale: _scaleAnim,
             child: Image.asset(
-              'assets/dreamdol.png',
+              'assets/logo.png',
               width: MediaQuery.of(context).size.width * 0.65,
               fit: BoxFit.contain,
             ),

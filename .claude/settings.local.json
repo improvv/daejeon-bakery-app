@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/Users/jinjeong/flutter/flutter/bin/flutter emulators *)"
+      "Bash(/Users/jinjeong/flutter/flutter/bin/flutter emulators *)",
+      "Bash(dart run *)",
+      "Bash(flutter pub *)"
     ]
   }
 }
