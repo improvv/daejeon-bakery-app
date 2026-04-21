@@ -1,5 +1,5 @@
 # 🥐 대전 빵사대
-![poster](./assets/poster.png)
+![poster](./web/icons/poster.png)
 > 내 주변 빵집을 쉽고 직관적으로 찾을 수 있는 베이커리 탐색 서비스
 
 <br />
