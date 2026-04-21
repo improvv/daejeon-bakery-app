@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/bakery.dart';
+import '../theme/app_colors.dart';
+import '../utils/time_utils.dart';
 
 class BakeryListItem extends StatefulWidget {
   final Bakery bakery;
   final VoidCallback onTap;
 
-  const BakeryListItem({
-    Key? key,
-    required this.bakery,
-    required this.onTap,
-  }) : super(key: key);
+  const BakeryListItem({Key? key, required this.bakery, required this.onTap})
+      : super(key: key);
 
   @override
   State<BakeryListItem> createState() => _BakeryListItemState();
@@ -41,12 +40,12 @@ class _BakeryListItemState extends State<BakeryListItem>
 
   @override
   Widget build(BuildContext context) {
+    final open = isOpenNow(widget.bakery.openingHours);
+    final hasHours = widget.bakery.openingHours != null;
+
     return GestureDetector(
       onTapDown: (_) => _pressController.forward(),
-      onTapUp: (_) {
-        _pressController.reverse();
-        widget.onTap();
-      },
+      onTapUp: (_) { _pressController.reverse(); widget.onTap(); },
       onTapCancel: () => _pressController.reverse(),
       child: AnimatedBuilder(
         animation: _scaleAnim,
@@ -56,54 +55,47 @@ class _BakeryListItemState extends State<BakeryListItem>
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.divider, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.07),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
+                color: AppColors.crustBrown.withValues(alpha: 0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
               // 썸네일
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E4),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    const Icon(
-                      Icons.bakery_dining,
-                      color: Color(0xFFD97941),
-                      size: 32,
+              Stack(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.creamFill,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    if (widget.bakery.isFavorite)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Container(
-                          width: 17,
-                          height: 17,
-                          decoration: const BoxDecoration(
-                            color: Colors.amber,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            size: 11,
-                            color: Colors.white,
-                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                    ),
+                  ),
+                  if (widget.bakery.isFavorite)
+                    Positioned(
+                      top: 4, right: 4,
+                      child: Container(
+                        width: 18, height: 18,
+                        decoration: const BoxDecoration(
+                          color: AppColors.crustBrown,
+                          shape: BoxShape.circle,
                         ),
+                        child: const Icon(Icons.bookmark_rounded, size: 11, color: Colors.white),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
               const SizedBox(width: 14),
 
@@ -122,73 +114,87 @@ class _BakeryListItemState extends State<BakeryListItem>
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF2C2C2C),
+                              color: AppColors.textPrimary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (widget.bakery.distance != null)
+                        if (widget.bakery.distance != null) ...[
+                          const SizedBox(width: 8),
                           Text(
                             '${(widget.bakery.distance! * 1000).toInt()}m',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B6B6B),
-                            ),
+                            style: const TextStyle(fontSize: 12, color: AppColors.textSec),
                           ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
 
                     // 별점 + 리뷰수
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Colors.amber,
-                          size: 15,
-                        ),
+                        const Icon(Icons.star_rounded, color: AppColors.caramel, size: 15),
                         const SizedBox(width: 3),
                         Text(
                           widget.bakery.rating.toStringAsFixed(1),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2C2C2C),
+                            color: AppColors.crustBrown,
                           ),
                         ),
                         Text(
                           '  ·  ${widget.bakery.reviewCount}개 리뷰',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B6B6B),
-                          ),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSec),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
 
-                    // 태그
-                    if (widget.bakery.specialMenu != null &&
-                        widget.bakery.specialMenu!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3E4),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _getTag(widget.bakery),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFD97941),
-                            fontWeight: FontWeight.w600,
+                    // 영업상태 뱃지 + 태그
+                    Row(
+                      children: [
+                        if (hasHours)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: open
+                                  ? AppColors.openGreen.withValues(alpha: 0.10)
+                                  : AppColors.closedRed.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              open ? '영업 중' : '영업 종료',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: open ? AppColors.openGreen : AppColors.closedRed,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                        if (hasHours &&
+                            widget.bakery.specialMenu != null &&
+                            widget.bakery.specialMenu!.isNotEmpty)
+                          const SizedBox(width: 6),
+                        if (widget.bakery.specialMenu != null &&
+                            widget.bakery.specialMenu!.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.creamFill,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              _getTag(widget.bakery),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.caramel,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -201,7 +207,7 @@ class _BakeryListItemState extends State<BakeryListItem>
 
   String _getTag(Bakery bakery) {
     if (bakery.rating >= 4.7) return '대전 대표';
-    if (bakery.reviewCount > 500) return '유명';
+    if (bakery.reviewCount > 500) return '인기';
     if (bakery.specialMenu?.contains('수제') == true) return '수제빵';
     return '동네빵집';
   }
