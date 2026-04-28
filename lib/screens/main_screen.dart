@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
+import '../theme/app_colors.dart';
 import '../widgets/bakery_list_item.dart';
 import '../widgets/map_placeholder.dart';
 import 'bakery_detail_screen.dart';
@@ -18,118 +19,113 @@ class MainScreen extends StatefulWidget {
 
 enum BottomSheetState { hidden, collapsed, expanded }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final BakeryRepository _repository = BakeryRepository();
   List<Bakery> _bakeries = [];
   bool _isLoading = false;
 
   GoogleMapController? _mapController;
+  LatLng? _currentLocation;
 
   BottomSheetState _bottomSheetState = BottomSheetState.collapsed;
+
+  static const double _hiddenHeight    = 36.0;
+  static const double _collapsedHeight = 220.0;
+  static const double _expandedHeight  = 650.0;
+
+  late final AnimationController _sheetController;
+
+  // 카테고리 칩
+  static const _categories = ['전체', '🥐 크루아상', '🍰 케이크', '🍞 식빵', '☕ 카페형'];
+  String _selectedCategory = '전체';
 
   @override
   void initState() {
     super.initState();
+    _sheetController = AnimationController(
+      vsync: this,
+      lowerBound: _hiddenHeight,
+      upperBound: _expandedHeight,
+      value: _collapsedHeight,
+    );
     _loadBakeries();
   }
 
   @override
   void dispose() {
+    _sheetController.dispose();
     _repository.dispose();
     super.dispose();
   }
 
+  double _targetHeight(BottomSheetState state) {
+    switch (state) {
+      case BottomSheetState.hidden:     return _hiddenHeight;
+      case BottomSheetState.collapsed:  return _collapsedHeight;
+      case BottomSheetState.expanded:   return _expandedHeight;
+    }
+  }
+
+  void _setBottomSheetState(BottomSheetState newState) {
+    setState(() => _bottomSheetState = newState);
+    _sheetController.animateTo(
+      _targetHeight(newState),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Future<void> _loadBakeries() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final mockBakeries = [
-      Bakery(
-        id: 1,
-        name: '성심당 본점',
-        address: '대전광역시 중구 은행동 145',
-        latitude: 36.3271,
-        longitude: 127.4275,
-        phoneNumber: '042-256-7730',
-        imageUrls: [],
-        rating: 4.8,
-        reviewCount: 1523,
-        distance: 0.35,
-        openingHours: '매일 08:00 - 20:00',
-        specialMenu: '튀김소보루, 부추빵, 판도로',
-        amenities: ['PARKING', 'WIFI'],
-      ),
-      Bakery(
-        id: 2,
-        name: '빵긍정',
-        address: '대전광역시 서구 둔산동 920',
-        latitude: 36.3500,
-        longitude: 127.3800,
-        phoneNumber: '042-123-4567',
-        imageUrls: [],
-        rating: 4.6,
-        reviewCount: 342,
-        distance: 0.62,
-        openingHours: '화-일 10:00 - 21:00',
-        specialMenu: '크루아상, 바게트',
-        amenities: ['PACKING'],
-      ),
-      Bakery(
-        id: 3,
-        name: '오븐이야기',
-        address: '대전광역시 유성구 봉명동 580',
-        latitude: 36.3700,
-        longitude: 127.3500,
-        phoneNumber: '042-234-5678',
-        imageUrls: [],
-        rating: 4.5,
-        reviewCount: 218,
-        distance: 0.89,
-        openingHours: '매일 09:00 - 22:00',
-        specialMenu: '수제빵, 케이크',
-        amenities: ['PARKING', 'PACKING'],
-      ),
+      Bakery(id: 1, name: '성심당 본점',   address: '대전광역시 중구 은행동 145',   latitude: 36.3271, longitude: 127.4275, phoneNumber: '042-256-7730', imageUrls: [], rating: 4.8, reviewCount: 1523, distance: 0.35, openingHours: '매일 08:00 - 20:00', specialMenu: '튀김소보루, 부추빵, 판도로', amenities: ['PARKING', 'WIFI']),
+      Bakery(id: 2, name: '빵긍정',         address: '대전광역시 서구 둔산동 920',   latitude: 36.3500, longitude: 127.3800, phoneNumber: '042-123-4567', imageUrls: [], rating: 4.6, reviewCount: 342,  distance: 0.62, openingHours: '화-일 10:00 - 21:00', specialMenu: '크루아상, 바게트',      amenities: ['PACKING']),
+      Bakery(id: 3, name: '오븐이야기',     address: '대전광역시 유성구 봉명동 580', latitude: 36.3700, longitude: 127.3500, phoneNumber: '042-234-5678', imageUrls: [], rating: 4.5, reviewCount: 218,  distance: 0.89, openingHours: '매일 09:00 - 22:00', specialMenu: '수제빵, 케이크',        amenities: ['PARKING', 'PACKING']),
     ];
 
-    final response = await _repository.getBakeries(
-      latitude: 36.3271,
-      longitude: 127.4275,
-    );
+    final response = await _repository.getBakeries(latitude: 36.3271, longitude: 127.4275);
 
     setState(() {
       _isLoading = false;
-      _bakeries = response.isSuccess && response.data != null
-          ? response.data!
-          : mockBakeries;
+      _bakeries = response.isSuccess && response.data != null ? response.data! : mockBakeries;
     });
   }
 
   void _onBakeryTap(Bakery bakery) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (context) => BakeryDetailScreen(bakeryId: bakery.id)),
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => BakeryDetailScreen(bakeryId: bakery.id),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        transitionsBuilder: (_, animation, __, child) => SlideTransition(
+          position: Tween<Offset>(begin: const Offset(1.0, 0), end: Offset.zero)
+              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+      ),
     );
   }
 
   Future<void> _moveToCurrentLocation() async {
     try {
+      const LatLng mockCurrentLocation = LatLng(36.3325, 127.4342);
+      setState(() => _currentLocation = mockCurrentLocation);
       if (_mapController != null) {
-        // 실제 앱 배포 시에는 Geolocator 플러그인을 사용하여 사용자 실제 위치를 가져와야 합니다.
-        // 예: Position position = await Geolocator.getCurrentPosition();
-        // 임시로 대전역 근처 위치를 '현재 위치'라고 가정하고 이동합니다.
-        const LatLng mockCurrentLocation = LatLng(36.3325, 127.4342); 
-        
         await _mapController!.animateCamera(
           CameraUpdate.newLatLngZoom(mockCurrentLocation, 15.0),
         );
       }
     } catch (e) {
-      // 위치 권한이 없거나 예외 발생 시 앱이 꺼지지 않도록 처리
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 위치를 가져올 수 없습니다.')),
+          SnackBar(
+            content: const Text('현재 위치를 가져올 수 없습니다.'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
         );
       }
     }
@@ -138,46 +134,72 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          MapPlaceholder(
-            bakeries: _bakeries,
-            onMarkerTap: _onBakeryTap,
-            onMapCreated: (controller) => _mapController = controller,
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
-            child: _buildSearchBar(),
-          ),
-          // 현재 위치로 이동하는 Floating Button (바텀시트가 최소화되었을 때만 우측 하단에 고정 표시)
-          Positioned(
-            right: 16,
-            bottom: 36 + 16, // BottomSheetState.hidden 시 높이(36) + 여백(16)
-            child: AnimatedScale(
-              scale: _bottomSheetState == BottomSheetState.hidden ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutBack,
-              child: FloatingActionButton(
-                heroTag: 'myLocationBtn',
-                onPressed: _moveToCurrentLocation,
-                backgroundColor: Colors.white,
-                elevation: 4,
-                shape: const CircleBorder(),
-                child: const Icon(Icons.my_location, color: Colors.blue),
+      body: AnimatedBuilder(
+        animation: _sheetController,
+        builder: (context, _) {
+          final h = _sheetController.value;
+          final isExpanded = _bottomSheetState == BottomSheetState.expanded;
+          final fabBottom = _bakeries.isNotEmpty ? h + 16 : 16.0;
+
+          return Stack(
+            children: [
+              // 지도
+              Positioned.fill(
+                child: MapPlaceholder(
+                  bakeries: _bakeries,
+                  onMarkerTap: _onBakeryTap,
+                  onMapCreated: (controller) => _mapController = controller,
+                  bottomPadding: h,
+                  currentLocation: _currentLocation,
+                ),
               ),
-            ),
-          ),
-          if (_bakeries.isNotEmpty)
-            Positioned(
-              left: 0,
-              right: 0,
-              // 바텀 네비게이션이 외부 RootScreen에 속하므로 바닥 여백 없이 0을 줍니다.
-              bottom: 0,
-              child: _buildBottomSheet(),
-            ),
-        ],
+
+              // 검색창
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                right: 16,
+                child: _buildSearchBar(),
+              ),
+
+              // 카테고리 칩
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16 + 52 + 10,
+                left: 0,
+                right: 0,
+                child: _buildCategoryChips(),
+              ),
+
+              // 현재 위치 FAB
+              Positioned(
+                right: 16,
+                bottom: fabBottom,
+                child: IgnorePointer(
+                  ignoring: isExpanded,
+                  child: AnimatedOpacity(
+                    opacity: isExpanded ? 0.0 : 1.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: FloatingActionButton(
+                      heroTag: 'myLocationBtn',
+                      onPressed: _moveToCurrentLocation,
+                      backgroundColor: AppColors.surface,
+                      elevation: 3,
+                      shape: const CircleBorder(),
+                      child: const Icon(Icons.my_location_rounded, color: AppColors.crustBrown),
+                    ),
+                  ),
+                ),
+              ),
+
+              // 바텀시트
+              if (_bakeries.isNotEmpty)
+                Positioned(
+                  left: 0, right: 0, bottom: 0,
+                  child: _buildBottomSheet(h),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -186,7 +208,7 @@ class _MainScreenState extends State<MainScreen> {
     return GestureDetector(
       onTap: () {
         if (widget.onNavigateToTab != null) {
-          widget.onNavigateToTab!(1); // 1 is SearchScreen's index
+          widget.onNavigateToTab!(1);
         } else {
           Navigator.push(context,
               MaterialPageRoute(builder: (context) => const SearchScreen()));
@@ -195,137 +217,250 @@ class _MainScreenState extends State<MainScreen> {
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border, width: 1),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 16,
-                offset: const Offset(0, 4)),
+              color: AppColors.crustBrown.withValues(alpha: 0.10),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Row(
           children: [
             const SizedBox(width: 16),
-            const Icon(Icons.search, color: Colors.grey),
-            const SizedBox(width: 12),
-            Text('빵집 이름 검색',
-                style: TextStyle(fontSize: 16, color: Colors.grey[400])),
+            const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              '대전 빵집을 찾아보세요 🍞',
+              style: TextStyle(fontSize: 15, color: AppColors.textHint),
+            ),
           ],
         ),
       ),
     );
   }
 
-  double _getBottomSheetHeight() {
-    switch (_bottomSheetState) {
-      case BottomSheetState.expanded:
-        return 650.0;
-      case BottomSheetState.collapsed:
-        return 220.0; // 기존 180보다 살짝 더 보여주는게 자연스럽습니다.
-      case BottomSheetState.hidden:
-        return 36.0; // 상하 margin 16 + 손잡이 height 4 = 36. 딱 손잡이만 보입니다.
-    }
+  Widget _buildCategoryChips() {
+    return SizedBox(
+      height: 36,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        clipBehavior: Clip.none,
+        itemCount: _categories.length,
+        itemBuilder: (_, i) {
+          final cat = _categories[i];
+          final isSelected = cat == _selectedCategory;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedCategory = cat),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.creamFill : AppColors.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isSelected ? AppColors.crustBrown : AppColors.border,
+                  width: isSelected ? 1.5 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.crustBrown.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                cat,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? AppColors.crustBrown : AppColors.textPrimary,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
-  Widget _buildBottomSheet() {
+  Widget _buildBottomSheet(double height) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: _bottomSheetState != BottomSheetState.expanded ? (_) {} : null,
       onVerticalDragEnd: (details) {
         final double velocity = details.primaryVelocity ?? 0;
-        final double threshold = 300.0; // 스와이프 민감도
-
-        setState(() {
-          if (velocity < -threshold) {
-            // 위로 드래그 (확장)
-            if (_bottomSheetState == BottomSheetState.hidden) {
-              _bottomSheetState = BottomSheetState.collapsed;
-            } else if (_bottomSheetState == BottomSheetState.collapsed) {
-              _bottomSheetState = BottomSheetState.expanded;
-            }
-          } else if (velocity > threshold) {
-            // 아래로 드래그 (축소)
-            if (_bottomSheetState == BottomSheetState.expanded) {
-              _bottomSheetState = BottomSheetState.collapsed;
-            } else if (_bottomSheetState == BottomSheetState.collapsed) {
-              _bottomSheetState = BottomSheetState.hidden;
-            }
+        const double threshold = 300.0;
+        if (velocity < -threshold) {
+          if (_bottomSheetState == BottomSheetState.hidden) {
+            _setBottomSheetState(BottomSheetState.collapsed);
+          } else if (_bottomSheetState == BottomSheetState.collapsed) {
+            _setBottomSheetState(BottomSheetState.expanded);
           }
-        });
+        } else if (velocity > threshold) {
+          if (_bottomSheetState == BottomSheetState.expanded) {
+            _setBottomSheetState(BottomSheetState.collapsed);
+          } else if (_bottomSheetState == BottomSheetState.collapsed) {
+            _setBottomSheetState(BottomSheetState.hidden);
+          }
+        }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        height: _getBottomSheetHeight(),
-        clipBehavior: Clip.hardEdge, // 높이가 줄어들 때 내용물이 넘치지 않고 깔끔하게 잘리도록 설정
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        height: height,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(
-                color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))
+              color: AppColors.crustBrown.withValues(alpha: 0.08),
+              blurRadius: 24,
+              offset: const Offset(0, -6),
+            ),
           ],
         ),
         child: SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(), // 레이아웃 스크롤 방지
+          physics: const NeverScrollableScrollPhysics(),
           child: SizedBox(
-            height: 650.0, // 최대 높이(expanded) 고정을 통해 Overflow(에러) 방지
+            height: _expandedHeight,
             child: Column(
               children: [
-                // 스와이프 손잡이(handle)
+                // 핸들 바
                 Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(vertical: 16),
+                  width: 44, height: 5,
+                  margin: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2)),
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
+                // 헤더
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('가까운 빵집',
-                              style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 4),
-                          Text('거리순 추천',
-                              style:
-                                  TextStyle(fontSize: 13, color: Colors.grey)),
-                        ],
+                      Text(
+                        '가까운 빵집',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-                      Text('총 ${_bakeries.length}개',
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.creamFill,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${_bakeries.length}곳',
                           style: const TextStyle(
-                              fontSize: 13, color: Colors.grey)),
+                            fontSize: 12,
+                            color: AppColors.crustBrown,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _showSortOptions,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceAlt,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('거리순', style: TextStyle(fontSize: 12, color: AppColors.textSec)),
+                              SizedBox(width: 4),
+                              Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.textSec),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
+                // 리스트
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? _buildSkeletonList()
                       : ListView.builder(
                           padding: EdgeInsets.zero,
-                          // 확장(expanded) 상태일 때만 내부를 스크롤 할 수 있도록 허용 (아닐 땐 드래그용으로 잠금)
-                          physics:
-                              _bottomSheetState == BottomSheetState.expanded
-                                  ? const AlwaysScrollableScrollPhysics()
-                                  : const NeverScrollableScrollPhysics(),
+                          physics: _bottomSheetState == BottomSheetState.expanded
+                              ? const AlwaysScrollableScrollPhysics()
+                              : const NeverScrollableScrollPhysics(),
                           itemCount: _bakeries.length,
-                          itemBuilder: (context, index) {
-                            return BakeryListItem(
-                              bakery: _bakeries[index],
-                              onTap: () => _onBakeryTap(_bakeries[index]),
-                            );
-                          },
+                          itemBuilder: (context, index) => BakeryListItem(
+                            bakery: _bakeries[index],
+                            onTap: () => _onBakeryTap(_bakeries[index]),
+                          ),
                         ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      itemCount: 3,
+      itemBuilder: (_, __) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        height: 90,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44, height: 5,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(3)),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('정렬 기준', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            ),
+          ),
+          for (final opt in ['거리순', '평점 높은순', '리뷰 많은순'])
+            ListTile(
+              title: Text(opt, style: const TextStyle(color: AppColors.textPrimary)),
+              trailing: opt == '거리순'
+                  ? const Icon(Icons.check_rounded, color: AppColors.crustBrown)
+                  : null,
+              onTap: () => Navigator.pop(context),
+            ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
