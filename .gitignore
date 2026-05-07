@@ -3,6 +3,9 @@ key.properties
 .env
 .env.local
 
+# Node.js
+backend/node_modules/
+
 # Miscellaneous
 *.class
 *.log
