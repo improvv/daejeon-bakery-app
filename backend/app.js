@@ -132,21 +132,53 @@ app.get('/api/v1/bakeries', (req, res) => {
     return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "위도(lat)와 경도(lon)는 필수입니다."));
   }
 
-  // 명세서 기반 더미 데이터 [cite: 26-59]
   const mockData = {
-    totalCount: 15,
+    totalCount: 3,
     bakeries: [
       {
         id: 120,
         name: "성심당 본점",
-        thumbnailUrl: "https://cdn.bread.com/img/120_main.jpg",
+        address: "대전광역시 중구 대종로 480번길 15",
+        imageUrls: ["https://cdn.bread.com/img/120_main.jpg"],
         latitude: 36.3276,
         longitude: 127.4273,
-        distance: 350,
+        distance: 0.35,
         rating: 4.8,
         reviewCount: 15234,
-        tags: ["대전 대표", "튀김소보로", "웨이팅필수"],
-        isOpen: true
+        isFavorite: false,
+        openingHours: "08:00 ~ 22:00",
+        amenities: ["PARKING", "PACKING", "WIFI"],
+        description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다."
+      },
+      {
+        id: 121,
+        name: "하레하레 갤러리아점",
+        address: "대전광역시 서구 둔산동 1036",
+        imageUrls: ["https://cdn.bread.com/img/121_main.jpg"],
+        latitude: 36.3504,
+        longitude: 127.3845,
+        distance: 1.2,
+        rating: 4.6,
+        reviewCount: 890,
+        isFavorite: false,
+        openingHours: "10:00 ~ 21:00",
+        amenities: ["PACKING"],
+        description: "일본 직수입 정통 베이커리"
+      },
+      {
+        id: 122,
+        name: "빵굽는시간",
+        address: "대전광역시 유성구 궁동 452",
+        imageUrls: ["https://cdn.bread.com/img/122_main.jpg"],
+        latitude: 36.3620,
+        longitude: 127.3460,
+        distance: 2.1,
+        rating: 4.5,
+        reviewCount: 320,
+        isFavorite: true,
+        openingHours: "09:00 ~ 20:00",
+        amenities: ["PARKING", "WIFI"],
+        description: "매일 새벽 직접 굽는 천연발효빵 전문점"
       }
     ]
   };
@@ -204,33 +236,25 @@ app.get('/api/v1/bakeries/:bakeryId', (req, res) => {
     return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
   }
 
-  // 명세서 기반 1-2 더미 데이터 [cite: 60-100]
   const mockData = {
-    bakeryInfo: {
-      id: bakeryId,
-      name: "성심당 본점",
-      imageUrls: [
-        "https://cdn.bread.com/img/120_1.jpg",
-        "https://cdn.bread.com/img/120_2.jpg",
-        "https://cdn.bread.com/img/120_3.jpg"
-      ],
-      address: "대전광역시 중구 대종로 480번길 15",
-      roadAddress: "대전광역시 중구 은행동 145",
-      phoneNumber: "042-256-7720",
-      homepageUrl: "https://sungsimdang.co.kr",
-      businessHours: "08:00 22:00",
-      description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다.",
-      amenities: ["PARKING", "PACKING", "WIFI", "RESTROOM"],
-      representativeMenus: ["튀김소보로", "판타롱부추빵", "명란바게트"],
-      stats: {
-        rating: 4.8,
-        reviewCount: 15234,
-        favoriteCount: 4500
-      },
-      userAction: {
-        isFavorite: true
-      }
-    }
+    id: bakeryId,
+    name: "성심당 본점",
+    address: "대전광역시 중구 은행동 145",
+    imageUrls: [
+      "https://cdn.bread.com/img/120_1.jpg",
+      "https://cdn.bread.com/img/120_2.jpg",
+      "https://cdn.bread.com/img/120_3.jpg"
+    ],
+    latitude: 36.3276,
+    longitude: 127.4273,
+    phoneNumber: "042-256-7720",
+    description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다.",
+    rating: 4.8,
+    reviewCount: 15234,
+    isFavorite: true,
+    openingHours: "08:00 ~ 22:00",
+    amenities: ["PARKING", "PACKING", "WIFI", "RESTROOM"],
+    specialMenu: "튀김소보로"
   };
 
   res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", mockData));
@@ -518,25 +542,31 @@ app.get('/api/v1/users/favorites', (req, res) => {
   const hasLocation = lat && lon;
 
   const mockData = {
-    totalCount: 5,
+    totalCount: 2,
     favorites: [
       {
         id: 120,
         name: "성심당 본점",
-        thumbnailUrl: "https://cdn.bread.com/img/120_main.jpg",
         address: "대전광역시 중구 은행동",
+        imageUrls: ["https://cdn.bread.com/img/120_main.jpg"],
+        latitude: 36.3276,
+        longitude: 127.4273,
         rating: 4.8,
         reviewCount: 15234,
-        distance: hasLocation ? 350 : null
+        isFavorite: true,
+        distance: hasLocation ? 0.35 : null
       },
       {
         id: 121,
         name: "하레하레 갤러리아점",
-        thumbnailUrl: "https://cdn.bread.com/img/121_main.jpg",
         address: "대전광역시 서구 둔산동",
+        imageUrls: ["https://cdn.bread.com/img/121_main.jpg"],
+        latitude: 36.3504,
+        longitude: 127.3845,
         rating: 4.6,
         reviewCount: 890,
-        distance: hasLocation ? 800 : null
+        isFavorite: true,
+        distance: hasLocation ? 0.8 : null
       }
     ]
   };
@@ -638,33 +668,27 @@ app.get('/api/v1/bakeries/:bakeryId/reviews', (req, res) => {
       currentPage: page,
       totalPages: 5,
       totalElements: 48,
-      isLast: page >= 4 // 5페이지(인덱스 4)면 마지막 페이지로 간주
+      isLast: page >= 4
     },
     reviews: [
       {
-        reviewId: 1001,
-        userInfo: {
-          userId: 50,
-          nickname: "빵순이",
-          profileImageUrl: "https://cdn.bread.com/face.jpg"
-        },
+        id: 1001,
+        bakeryId: bakeryId,
+        userName: "빵순이",
+        userProfileImage: "https://cdn.bread.com/face.jpg",
         rating: 5,
         content: "대전 오면 무조건 들러야 합니다. 튀소 최고!",
-        reviewImages: [
-          "https://cdn.bread.com/review1.jpg"
-        ],
+        imageUrls: ["https://cdn.bread.com/review1.jpg"],
         createdAt: "2026-01-26"
       },
       {
-        reviewId: 1002,
-        userInfo: {
-          userId: 33,
-          nickname: "대전토박이",
-          profileImageUrl: null
-        },
+        id: 1002,
+        bakeryId: bakeryId,
+        userName: "대전토박이",
+        userProfileImage: null,
         rating: 4,
         content: "사람이 너무 많아서 별 하나 뺍니다.",
-        reviewImages: [],
+        imageUrls: [],
         createdAt: "2026-01-25"
       }
     ]

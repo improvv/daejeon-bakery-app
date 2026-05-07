@@ -18,7 +18,7 @@ class BakeryRepository {
     double? longitude,
   }) async {
     final queryParams = <String, String>{};
-    
+
     if (keyword != null && keyword.isNotEmpty) {
       queryParams['keyword'] = keyword;
     }
@@ -26,17 +26,18 @@ class BakeryRepository {
       queryParams['district'] = district;
     }
     if (latitude != null) {
-      queryParams['latitude'] = latitude.toString();
+      queryParams['lat'] = latitude.toString();
     }
     if (longitude != null) {
-      queryParams['longitude'] = longitude.toString();
+      queryParams['lon'] = longitude.toString();
     }
 
     final response = await _apiClient.get<List<Bakery>>(
       '/api/v1/bakeries',
       queryParameters: queryParams.isNotEmpty ? queryParams : null,
       fromJson: (json) {
-        final list = json as List<dynamic>;
+        final map = json as Map<String, dynamic>;
+        final list = map['bakeries'] as List<dynamic>;
         return list.map((item) => Bakery.fromJson(item as Map<String, dynamic>)).toList();
       },
     );
@@ -59,7 +60,8 @@ class BakeryRepository {
     final response = await _apiClient.get<List<Review>>(
       '/api/v1/bakeries/$bakeryId/reviews',
       fromJson: (json) {
-        final list = json as List<dynamic>;
+        final map = json as Map<String, dynamic>;
+        final list = map['reviews'] as List<dynamic>;
         return list.map((item) => Review.fromJson(item as Map<String, dynamic>)).toList();
       },
     );
@@ -72,7 +74,8 @@ class BakeryRepository {
     final response = await _apiClient.get<List<SearchHistory>>(
       '/api/v1/users/search-history',
       fromJson: (json) {
-        final list = json as List<dynamic>;
+        final map = json as Map<String, dynamic>;
+        final list = map['keywords'] as List<dynamic>;
         return list.map((item) => SearchHistory.fromJson(item as Map<String, dynamic>)).toList();
       },
     );
@@ -104,7 +107,8 @@ class BakeryRepository {
     final response = await _apiClient.get<List<Bakery>>(
       '/api/v1/users/favorites',
       fromJson: (json) {
-        final list = json as List<dynamic>;
+        final map = json as Map<String, dynamic>;
+        final list = map['favorites'] as List<dynamic>;
         return list.map((item) => Bakery.fromJson(item as Map<String, dynamic>)).toList();
       },
     );
