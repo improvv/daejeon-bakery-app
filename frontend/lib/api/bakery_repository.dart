@@ -16,6 +16,7 @@ class BakeryRepository {
     String? district,
     double? latitude,
     double? longitude,
+    double? radius,
   }) async {
     final queryParams = <String, String>{};
 
@@ -30,6 +31,9 @@ class BakeryRepository {
     }
     if (longitude != null) {
       queryParams['lon'] = longitude.toString();
+    }
+    if (radius != null) {
+      queryParams['radius'] = radius.toString();
     }
 
     final response = await _apiClient.get<List<Bakery>>(
