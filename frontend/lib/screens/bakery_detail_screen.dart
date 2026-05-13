@@ -246,19 +246,35 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                     const SizedBox(height: 16),
 
                     // 영업시간
-                    if (_bakery!.openingHours != null)
+                    if (_bakery!.openingHours != null) ...[
                       _buildInfoRow(
                         Icons.access_time_rounded,
                         open ? '영업 중  ·  ${_bakery!.openingHours}' : '영업 종료  ·  ${_bakery!.openingHours}',
                         open ? AppColors.openGreen : AppColors.closedRed,
                       ),
+                      if (_bakery!.openingHoursAll != null && _bakery!.openingHoursAll!.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28, top: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _bakery!.openingHoursAll!
+                                .map((h) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Text(h, style: const TextStyle(fontSize: 12, color: AppColors.textSec, height: 1.5)),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                    ],
 
                     const SizedBox(height: 12),
 
                     // 주소 + 거리
                     _buildInfoRow(
                       Icons.location_on_rounded,
-                      '${_bakery!.address}\n현재 위치에서 ${_bakery!.distance?.toStringAsFixed(1)}km',
+                      _bakery!.distance != null
+                          ? '${_bakery!.address}\n현재 위치에서 ${_bakery!.distance!.toStringAsFixed(1)}km'
+                          : _bakery!.address,
                       AppColors.textSec,
                     ),
 

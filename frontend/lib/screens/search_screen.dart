@@ -64,7 +64,13 @@ class _SearchScreenState extends State<SearchScreen> {
         .toList();
     final districtQuery = selectedDistrictNames.length == 1 ? selectedDistrictNames.first : null;
 
-    final response = await _repository.getBakeries(keyword: keyword, district: districtQuery);
+    final response = await _repository.getBakeries(
+      keyword: keyword,
+      district: districtQuery,
+      latitude: 36.3504,
+      longitude: 127.3845,
+      radius: 15,
+    );
 
     setState(() {
       _isLoading = false;
