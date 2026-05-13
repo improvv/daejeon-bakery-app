@@ -1,3 +1,9 @@
+require('dotenv').config();
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
@@ -125,65 +131,64 @@ app.get('/swagger.json', (req, res) => {
  *               message: 위도(lat)와 경도(lon)는 필수입니다.
  *               data: null
  */
-app.get('/api/v1/bakeries', (req, res) => {
-  const { lat, lon } = req.query;
+app.get('/api/v1/bakeries', async (req, res) => {
+  const { lat, lon, radius = 10.0, keyword, sort = 'DISTANCE' } = req.query;
 
   if (!lat || !lon) {
     return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "위도(lat)와 경도(lon)는 필수입니다."));
   }
 
-  const mockData = {
-    totalCount: 3,
-    bakeries: [
-      {
-        id: 120,
-        name: "성심당 본점",
-        address: "대전광역시 중구 대종로 480번길 15",
-        imageUrls: ["https://cdn.bread.com/img/120_main.jpg"],
-        latitude: 36.3276,
-        longitude: 127.4273,
-        distance: 0.35,
-        rating: 4.8,
-        reviewCount: 15234,
-        isFavorite: false,
-        openingHours: "08:00 ~ 22:00",
-        amenities: ["PARKING", "PACKING", "WIFI"],
-        description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다."
-      },
-      {
-        id: 121,
-        name: "하레하레 갤러리아점",
-        address: "대전광역시 서구 둔산동 1036",
-        imageUrls: ["https://cdn.bread.com/img/121_main.jpg"],
-        latitude: 36.3504,
-        longitude: 127.3845,
-        distance: 1.2,
-        rating: 4.6,
-        reviewCount: 890,
-        isFavorite: false,
-        openingHours: "10:00 ~ 21:00",
-        amenities: ["PACKING"],
-        description: "일본 직수입 정통 베이커리"
-      },
-      {
-        id: 122,
-        name: "빵굽는시간",
-        address: "대전광역시 유성구 궁동 452",
-        imageUrls: ["https://cdn.bread.com/img/122_main.jpg"],
-        latitude: 36.3620,
-        longitude: 127.3460,
-        distance: 2.1,
-        rating: 4.5,
-        reviewCount: 320,
-        isFavorite: true,
-        openingHours: "09:00 ~ 20:00",
-        amenities: ["PARKING", "WIFI"],
-        description: "매일 새벽 직접 굽는 천연발효빵 전문점"
-      }
-    ]
-  };
+  const userLat = parseFloat(lat);
+  const userLon = parseFloat(lon);
+  const radiusKm = parseFloat(radius);
 
-  res.json(responseWrapper("SUCCESS", "요청이 성공하였습니다.", mockData));
+  const distanceExpr = `(6371 * acos(LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) + sin(radians($1)) * sin(radians(latitude)))))`;
+
+  const params = [userLat, userLon, radiusKm];
+  let paramIndex = 4;
+  let whereClause = `WHERE ${distanceExpr} <= $3`;
+
+  if (keyword) {
+    whereClause += ` AND name ILIKE $${paramIndex}`;
+    params.push(`%${keyword}%`);
+    paramIndex++;
+  }
+
+  const orderClause = sort === 'RATING' ? 'ORDER BY rating DESC NULLS LAST'
+    : sort === 'LATEST' ? 'ORDER BY created_at DESC'
+    : `ORDER BY ${distanceExpr} ASC`;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, name, address, latitude, longitude, rating, opening_hours, photo_reference, description, amenities,
+              ${distanceExpr} AS distance
+       FROM bakeries ${whereClause} ${orderClause}`,
+      params
+    );
+
+    const bakeries = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      imageUrls: row.photo_reference
+        ? [`https://places.googleapis.com/v1/${row.photo_reference}/media?maxWidthPx=800&key=${process.env.GOOGLE_PLACES_API_KEY}`]
+        : [],
+      latitude: row.latitude,
+      longitude: row.longitude,
+      distance: Math.round(row.distance * 100) / 100,
+      rating: row.rating ? parseFloat(row.rating) : null,
+      reviewCount: 0,
+      isFavorite: false,
+      openingHours: row.opening_hours?.[0] ?? null,
+      amenities: row.amenities ?? [],
+      description: row.description ?? null,
+    }));
+
+    res.json(responseWrapper("SUCCESS", "요청이 성공하였습니다.", { totalCount: bakeries.length, bakeries }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
 });
 
 
@@ -226,38 +231,44 @@ app.get('/api/v1/bakeries', (req, res) => {
  *               message: 존재하지 않는 빵집입니다.
  *               data: null
  */
-app.get('/api/v1/bakeries/:bakeryId', (req, res) => {
+app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
   const bakeryId = parseInt(req.params.bakeryId, 10);
 
   if (isNaN(bakeryId)) {
     return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
   }
-  if (bakeryId === 999) { // 404 에러 테스트용 더미 ID
-    return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
+
+  try {
+    const result = await pool.query('SELECT * FROM bakeries WHERE id = $1', [bakeryId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
+    }
+
+    const row = result.rows[0];
+    const data = {
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      imageUrls: row.photo_reference
+        ? [`https://places.googleapis.com/v1/${row.photo_reference}/media?maxWidthPx=800&key=${process.env.GOOGLE_PLACES_API_KEY}`]
+        : [],
+      latitude: row.latitude,
+      longitude: row.longitude,
+      phoneNumber: row.phone_number ?? null,
+      description: row.description ?? null,
+      rating: row.rating ? parseFloat(row.rating) : null,
+      reviewCount: 0,
+      isFavorite: false,
+      openingHours: row.opening_hours?.[0] ?? null,
+      amenities: row.amenities ?? [],
+    };
+
+    res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
   }
-
-  const mockData = {
-    id: bakeryId,
-    name: "성심당 본점",
-    address: "대전광역시 중구 은행동 145",
-    imageUrls: [
-      "https://cdn.bread.com/img/120_1.jpg",
-      "https://cdn.bread.com/img/120_2.jpg",
-      "https://cdn.bread.com/img/120_3.jpg"
-    ],
-    latitude: 36.3276,
-    longitude: 127.4273,
-    phoneNumber: "042-256-7720",
-    description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다.",
-    rating: 4.8,
-    reviewCount: 15234,
-    isFavorite: true,
-    openingHours: "08:00 ~ 22:00",
-    amenities: ["PARKING", "PACKING", "WIFI", "RESTROOM"],
-    specialMenu: "튀김소보로"
-  };
-
-  res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", mockData));
 });
 
 /**
