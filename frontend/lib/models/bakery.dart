@@ -11,6 +11,7 @@ class Bakery {
   final int reviewCount;
   final bool isFavorite;
   final String? openingHours;
+  final List<String>? openingHoursAll;
   final List<String> amenities;
   final String? specialMenu;
   final double? distance; // 현재 위치에서의 거리 (km)
@@ -28,6 +29,7 @@ class Bakery {
     this.reviewCount = 0,
     this.isFavorite = false,
     this.openingHours,
+    this.openingHoursAll,
     this.amenities = const [],
     this.specialMenu,
     this.distance,
@@ -50,6 +52,9 @@ class Bakery {
       reviewCount: json['reviewCount'] as int? ?? 0,
       isFavorite: json['isFavorite'] as bool? ?? false,
       openingHours: json['openingHours'] as String?,
+      openingHoursAll: (json['openingHoursAll'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList(),
       amenities: (json['amenities'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
@@ -73,6 +78,7 @@ class Bakery {
       'reviewCount': reviewCount,
       'isFavorite': isFavorite,
       'openingHours': openingHours,
+      'openingHoursAll': openingHoursAll,
       'amenities': amenities,
       'specialMenu': specialMenu,
       'distance': distance,
@@ -92,6 +98,7 @@ class Bakery {
     int? reviewCount,
     bool? isFavorite,
     String? openingHours,
+    List<String>? openingHoursAll,
     List<String>? amenities,
     String? specialMenu,
     double? distance,
@@ -109,6 +116,7 @@ class Bakery {
       reviewCount: reviewCount ?? this.reviewCount,
       isFavorite: isFavorite ?? this.isFavorite,
       openingHours: openingHours ?? this.openingHours,
+      openingHoursAll: openingHoursAll ?? this.openingHoursAll,
       amenities: amenities ?? this.amenities,
       specialMenu: specialMenu ?? this.specialMenu,
       distance: distance ?? this.distance,

@@ -10,7 +10,13 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Google Places 요일 배열 인덱스: 0=월, 1=화, ..., 6=일
+function todayIndex() {
+  const day = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getDay();
+  return day === 0 ? 6 : day - 1;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -179,7 +185,7 @@ app.get('/api/v1/bakeries', async (req, res) => {
       rating: row.rating ? parseFloat(row.rating) : null,
       reviewCount: 0,
       isFavorite: false,
-      openingHours: row.opening_hours?.[0] ?? null,
+      openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
       amenities: row.amenities ?? [],
       description: row.description ?? null,
     }));
@@ -260,7 +266,8 @@ app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
       rating: row.rating ? parseFloat(row.rating) : null,
       reviewCount: 0,
       isFavorite: false,
-      openingHours: row.opening_hours?.[0] ?? null,
+      openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
+      openingHoursAll: row.opening_hours ?? null,
       amenities: row.amenities ?? [],
     };
 
