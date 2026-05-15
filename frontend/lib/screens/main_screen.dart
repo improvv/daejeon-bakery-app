@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../widgets/bakery_list_item.dart';
 import '../widgets/map_placeholder.dart';
 import 'bakery_detail_screen.dart';
+import 'admin_screen.dart';
 import 'search_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -90,6 +91,96 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _isLoading = false;
       _bakeries = response.isSuccess && response.data != null ? response.data! : mockBakeries;
     });
+  }
+
+  static const _adminPassword = 'a0!';
+
+  Future<void> _openAdminWithAuth() async {
+    final codeController = TextEditingController();
+    bool obscure = true;
+    String? errorMsg;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('관리자 인증',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('관리자 코드를 입력하세요',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSec)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: codeController,
+                obscureText: obscure,
+                autofocus: true,
+                onChanged: (_) { if (errorMsg != null) setDialogState(() => errorMsg = null); },
+                onSubmitted: (_) {
+                  if (codeController.text == _adminPassword) {
+                    Navigator.pop(ctx, true);
+                  } else {
+                    setDialogState(() => errorMsg = '코드가 올바르지 않습니다');
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: '코드 입력',
+                  errorText: errorMsg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppColors.crustBrown, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      size: 18,
+                      color: AppColors.textHint,
+                    ),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소', style: TextStyle(color: AppColors.textSec)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (codeController.text == _adminPassword) {
+                  Navigator.pop(ctx, true);
+                } else {
+                  setDialogState(() => errorMsg = '코드가 올바르지 않습니다');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.crustBrown,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('확인', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminScreen()));
+    }
   }
 
   void _onBakeryTap(Bakery bakery) {
@@ -233,9 +324,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             const SizedBox(width: 16),
             const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
             const SizedBox(width: 10),
-            Text(
-              '대전 빵집을 찾아보세요 🍞',
-              style: TextStyle(fontSize: 15, color: AppColors.textHint),
+            Expanded(
+              child: Text(
+                '대전 빵집을 찾아보세요 🍞',
+                style: TextStyle(fontSize: 15, color: AppColors.textHint),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.textHint, size: 20),
+              onPressed: _openAdminWithAuth,
+              tooltip: '관리자',
             ),
           ],
         ),
