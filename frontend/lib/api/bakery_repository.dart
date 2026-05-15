@@ -120,6 +120,38 @@ class BakeryRepository {
     return response;
   }
 
+  /// 관리자 - 전체 빵집 목록 조회
+  Future<ApiResponse<List<Bakery>>> getAdminBakeries() async {
+    final response = await _apiClient.get<List<Bakery>>(
+      '/api/v1/admin/bakeries',
+      fromJson: (json) {
+        final map = json as Map<String, dynamic>;
+        final list = map['bakeries'] as List<dynamic>;
+        return list.map((item) => Bakery.fromJson(item as Map<String, dynamic>)).toList();
+      },
+    );
+    return response;
+  }
+
+  /// 관리자 - 빵집 정보 수정
+  Future<ApiResponse<void>> updateBakeryInfo(
+    int bakeryId, {
+    String? description,
+    String? specialMenu,
+    List<String>? amenities,
+  }) async {
+    final body = <String, dynamic>{};
+    if (description != null) body['description'] = description;
+    if (specialMenu != null) body['specialMenu'] = specialMenu;
+    if (amenities != null) body['amenities'] = amenities;
+
+    final response = await _apiClient.patch<void>(
+      '/api/v1/admin/bakeries/$bakeryId',
+      body: body,
+    );
+    return response;
+  }
+
   void dispose() {
     _apiClient.dispose();
   }

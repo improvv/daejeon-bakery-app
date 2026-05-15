@@ -50,6 +50,24 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse<T>> patch<T>(
+    String path, {
+    Map<String, dynamic>? body,
+    T Function(dynamic)? fromJson,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path');
+      final response = await _client.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: body != null ? jsonEncode(body) : null,
+      );
+      return _handleResponse<T>(response, fromJson);
+    } catch (e) {
+      return ApiResponse<T>(code: 'ERROR', message: e.toString(), data: null);
+    }
+  }
+
   Future<ApiResponse<T>> delete<T>(
     String path, {
     T Function(dynamic)? fromJson,

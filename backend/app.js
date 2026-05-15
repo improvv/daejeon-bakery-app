@@ -715,6 +715,60 @@ app.get('/api/v1/bakeries/:bakeryId/reviews', (req, res) => {
   res.json(responseWrapper("SUCCESS", "리뷰 목록 조회가 성공하였습니다.", mockData));
 });
 
+// 관리자 - 빵집 전체 목록 조회
+app.get('/api/v1/admin/bakeries', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, address, description, amenities, special_menu FROM bakeries ORDER BY id'
+    );
+    const bakeries = result.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      address: r.address,
+      description: r.description ?? null,
+      amenities: r.amenities ?? [],
+      specialMenu: r.special_menu ?? null,
+    }));
+    res.json(responseWrapper("SUCCESS", "조회 성공", { bakeries }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
+
+// 관리자 - 빵집 정보 수정
+app.patch('/api/v1/admin/bakeries/:bakeryId', async (req, res) => {
+  const bakeryId = parseInt(req.params.bakeryId, 10);
+  if (isNaN(bakeryId)) {
+    return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
+  }
+
+  const { description, specialMenu, amenities } = req.body;
+  const updates = [];
+  const params = [];
+  let idx = 1;
+
+  if (description !== undefined) { updates.push(`description = $${idx++}`); params.push(description || null); }
+  if (specialMenu !== undefined) { updates.push(`special_menu = $${idx++}`); params.push(specialMenu || null); }
+  if (amenities !== undefined) { updates.push(`amenities = $${idx++}`); params.push(amenities); }
+
+  if (updates.length === 0) {
+    return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "수정할 항목이 없습니다."));
+  }
+
+  params.push(bakeryId);
+  try {
+    await pool.query(
+      `UPDATE bakeries SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx}`,
+      params
+    );
+    res.json(responseWrapper("SUCCESS", "수정되었습니다.", null));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
+
 // 서버 실행
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
