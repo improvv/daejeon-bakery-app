@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/api_response.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'https://daejeon-bakery-app-backend.onrender.com';
 
   final http.Client _client;
 
