@@ -138,7 +138,7 @@ app.get('/swagger.json', (req, res) => {
  *               data: null
  */
 app.get('/api/v1/bakeries', async (req, res) => {
-  const { lat, lon, radius = 10.0, keyword, sort = 'DISTANCE' } = req.query;
+  const { lat, lon, radius = 10.0, keyword, sort = 'DISTANCE', district } = req.query;
 
   if (!lat || !lon) {
     return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "위도(lat)와 경도(lon)는 필수입니다."));
@@ -155,8 +155,15 @@ app.get('/api/v1/bakeries', async (req, res) => {
   let whereClause = `WHERE ${distanceExpr} <= $3`;
 
   if (keyword) {
-    whereClause += ` AND name ILIKE $${paramIndex}`;
-    params.push(`%${keyword}%`);
+    const kw = `%${keyword}%`;
+    whereClause += ` AND (name ILIKE $${paramIndex} OR COALESCE(special_menu, '') ILIKE $${paramIndex + 1})`;
+    params.push(kw, kw);
+    paramIndex += 2;
+  }
+
+  if (district && district !== '전체') {
+    whereClause += ` AND address ILIKE $${paramIndex}`;
+    params.push(`%${district}%`);
     paramIndex++;
   }
 
