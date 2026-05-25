@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
@@ -18,6 +20,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final BakeryRepository _repository = BakeryRepository();
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounceTimer;
 
   List<SearchHistory> _searchHistory = [];
   List<Bakery> _searchResults = [];
@@ -33,6 +36,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     _repository.dispose();
     super.dispose();
@@ -44,13 +48,14 @@ class _SearchScreenState extends State<SearchScreen> {
       _searchHistory = response.isSuccess && response.data != null
           ? response.data!
           : [
-              SearchHistory(id: 1, keyword: '성심당',   searchedAt: DateTime.now().subtract(const Duration(hours: 2))),
-              SearchHistory(id: 2, keyword: '빵긍정',   searchedAt: DateTime.now().subtract(const Duration(days: 1))),
+              SearchHistory(id: 1, keyword: '성심당',    searchedAt: DateTime.now().subtract(const Duration(hours: 2))),
+              SearchHistory(id: 2, keyword: '빵긍정',    searchedAt: DateTime.now().subtract(const Duration(days: 1))),
               SearchHistory(id: 3, keyword: '오븐이야기', searchedAt: DateTime.now().subtract(const Duration(days: 3))),
             ];
     });
   }
 
+  // 실제 검색 실행
   Future<void> _search(String keyword) async {
     if (keyword.trim().isEmpty) {
       setState(() { _isSearching = false; _searchResults = []; });
@@ -58,26 +63,43 @@ class _SearchScreenState extends State<SearchScreen> {
     }
     setState(() { _isLoading = true; _isSearching = true; });
 
-    final selectedDistrictNames = _selectedDistricts
-        .where((d) => d != DistrictFilter.all)
-        .map((d) => d.displayName)
-        .toList();
-    final districtQuery = selectedDistrictNames.length == 1 ? selectedDistrictNames.first : null;
+    // 구 필터: 1개만 선택된 경우 백엔드에 전달, 복수 선택 시 전체 조회
+    final selectedDistricts = _selectedDistricts.where((d) => d != DistrictFilter.all).toList();
+    final districtQuery = selectedDistricts.length == 1 ? selectedDistricts.first.displayName : null;
 
     final response = await _repository.getBakeries(
-      keyword: keyword,
+      keyword: keyword.trim(),
       district: districtQuery,
       latitude: 36.3504,
       longitude: 127.3845,
       radius: 15,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
-      _searchResults = response.isSuccess && response.data != null
-          ? response.data!
-          : [Bakery(id: 1, name: '성심당 본점', address: '대전광역시 중구 은행동 145', latitude: 36.3271, longitude: 127.4275, rating: 4.8, reviewCount: 1523, distance: 0.35)];
+      _searchResults = response.isSuccess && response.data != null ? response.data! : [];
     });
+  }
+
+  // 타이핑할 때 400ms 후 자동 검색
+  void _onSearchChanged(String value) {
+    setState(() {}); // X 버튼 표시 갱신
+    _debounceTimer?.cancel();
+
+    if (value.trim().isEmpty) {
+      setState(() { _isSearching = false; _searchResults = []; });
+      return;
+    }
+
+    setState(() { _isSearching = true; _isLoading = true; });
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () => _search(value));
+  }
+
+  // Enter / 검색 버튼: 즉시 검색
+  void _onSearchSubmitted(String value) {
+    _debounceTimer?.cancel();
+    _search(value);
   }
 
   Future<void> _deleteSearchHistory(int historyId) async {
@@ -87,6 +109,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _onHistoryTap(String keyword) {
     _searchController.text = keyword;
+    _debounceTimer?.cancel();
     _search(keyword);
   }
 
@@ -104,6 +127,21 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     );
+  }
+
+  void _toggleDistrictSelection(DistrictFilter filter) {
+    if (filter == DistrictFilter.all) {
+      _selectedDistricts = {DistrictFilter.all};
+    } else {
+      final next = {..._selectedDistricts}..remove(DistrictFilter.all);
+      next.contains(filter) ? next.remove(filter) : next.add(filter);
+      _selectedDistricts = next.isEmpty ? {DistrictFilter.all} : next;
+    }
+    // 검색어가 있으면 필터 변경 시 즉시 재검색
+    if (_searchController.text.trim().isNotEmpty) {
+      _debounceTimer?.cancel();
+      _search(_searchController.text);
+    }
   }
 
   @override
@@ -149,29 +187,38 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               child: TextField(
                 controller: _searchController,
-                autofocus: false,
+                autofocus: true,
                 style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: '빵집 이름, 메뉴 검색',
+                  hintText: '빵집 이름, 메뉴, 주소 검색',
                   hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 15),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
+                  prefixIcon: _isLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.crustBrown,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
                           onPressed: () {
+                            _debounceTimer?.cancel();
                             _searchController.clear();
-                            setState(() { _isSearching = false; _searchResults = []; });
+                            setState(() { _isSearching = false; _searchResults = []; _isLoading = false; });
                           },
                         )
                       : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onSubmitted: _search,
-                onChanged: (value) {
-                  setState(() {});
-                  if (value.isEmpty) setState(() { _isSearching = false; _searchResults = []; });
-                },
+                onChanged: _onSearchChanged,
+                onSubmitted: _onSearchSubmitted,
               ),
             ),
           ),
@@ -209,17 +256,12 @@ class _SearchScreenState extends State<SearchScreen> {
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     selected: isSelected,
                     showCheckmark: false,
-                    onSelected: (_) {
-                      setState(() => _toggleDistrictSelection(filter));
-                      if (_searchController.text.isNotEmpty) _search(_searchController.text);
-                    },
-                    // 선택 안 된 상태 — outlined
+                    onSelected: (_) => setState(() => _toggleDistrictSelection(filter)),
                     backgroundColor: AppColors.surface,
                     side: BorderSide(
                       color: isSelected ? AppColors.crustBrown : AppColors.border,
                       width: isSelected ? 1.5 : 1.0,
                     ),
-                    // 선택된 상태 — 크림 배경
                     selectedColor: AppColors.creamFill,
                     labelStyle: TextStyle(
                       fontSize: 13,
@@ -237,22 +279,16 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  void _toggleDistrictSelection(DistrictFilter filter) {
-    if (filter == DistrictFilter.all) { _selectedDistricts = {DistrictFilter.all}; return; }
-    final next = {..._selectedDistricts}..remove(DistrictFilter.all);
-    next.contains(filter) ? next.remove(filter) : next.add(filter);
-    _selectedDistricts = next.isEmpty ? {DistrictFilter.all} : next;
-  }
-
   Widget _buildRecentSearches() {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const Text('최근 검색', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        const Text('최근 검색',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
         const SizedBox(height: 12),
         if (_searchHistory.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(
               child: Text('최근 검색 내역이 없습니다',
                   style: TextStyle(color: AppColors.textHint, fontSize: 14)),
@@ -260,16 +296,16 @@ class _SearchScreenState extends State<SearchScreen> {
           )
         else
           ..._searchHistory.map((history) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.history_rounded, color: AppColors.textHint, size: 20),
-            title: Text(history.keyword,
-                style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
-            trailing: IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
-              onPressed: () => _deleteSearchHistory(history.id),
-            ),
-            onTap: () => _onHistoryTap(history.keyword),
-          )),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history_rounded, color: AppColors.textHint, size: 20),
+                title: Text(history.keyword,
+                    style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
+                  onPressed: () => _deleteSearchHistory(history.id),
+                ),
+                onTap: () => _onHistoryTap(history.keyword),
+              )),
       ],
     );
   }
@@ -283,7 +319,7 @@ class _SearchScreenState extends State<SearchScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           height: 90,
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: AppColors.surfaceAlt,
             borderRadius: BorderRadius.circular(16),
           ),
         ),
@@ -297,17 +333,27 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Icon(Icons.search_off_rounded, size: 64, color: AppColors.border),
             const SizedBox(height: 16),
-            Text('"${_searchController.text}" 검색 결과가 없어요',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            Text(
+              '"${_searchController.text}" 검색 결과가 없어요',
+              style: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            ),
             const SizedBox(height: 8),
-            Text('다른 키워드로 검색하거나\n필터를 변경해보세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppColors.textSec, height: 1.6)),
+            const Text(
+              '다른 키워드로 검색하거나\n필터를 변경해보세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppColors.textSec, height: 1.6),
+            ),
             const SizedBox(height: 24),
             OutlinedButton(
               onPressed: () {
+                _debounceTimer?.cancel();
                 _searchController.clear();
-                setState(() { _isSearching = false; _searchResults = []; _selectedDistricts = {DistrictFilter.all}; });
+                setState(() {
+                  _isSearching = false;
+                  _searchResults = [];
+                  _selectedDistricts = {DistrictFilter.all};
+                });
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.crustBrown,
@@ -322,13 +368,27 @@ class _SearchScreenState extends State<SearchScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) => BakeryListItem(
-        bakery: _searchResults[index],
-        onTap: () => _onBakeryTap(_searchResults[index]),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          child: Text(
+            '검색 결과 ${_searchResults.length}개',
+            style: const TextStyle(fontSize: 13, color: AppColors.textSec),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) => BakeryListItem(
+              bakery: _searchResults[index],
+              onTap: () => _onBakeryTap(_searchResults[index]),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
