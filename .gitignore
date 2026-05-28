@@ -41,8 +41,6 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /frontend/build/
-!/frontend/build/web/
-!/frontend/build/web/**
 
 # Web related
 frontend/lib/generated_plugin_registrant.dart
