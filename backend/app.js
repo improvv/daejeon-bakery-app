@@ -1,10 +1,22 @@
+require('dotenv').config();
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+const { Pool } = require('pg');
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
 const express = require('express');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Google Places 요일 배열 인덱스: 0=월, 1=화, ..., 6=일
+function todayIndex() {
+  const day = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getDay();
+  return day === 0 ? 6 : day - 1;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -125,33 +137,71 @@ app.get('/swagger.json', (req, res) => {
  *               message: 위도(lat)와 경도(lon)는 필수입니다.
  *               data: null
  */
-app.get('/api/v1/bakeries', (req, res) => {
-  const { lat, lon } = req.query;
+app.get('/api/v1/bakeries', async (req, res) => {
+  const { lat, lon, radius = 10.0, keyword, sort = 'DISTANCE', district } = req.query;
 
   if (!lat || !lon) {
     return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "위도(lat)와 경도(lon)는 필수입니다."));
   }
 
-  // 명세서 기반 더미 데이터 [cite: 26-59]
-  const mockData = {
-    totalCount: 15,
-    bakeries: [
-      {
-        id: 120,
-        name: "성심당 본점",
-        thumbnailUrl: "https://cdn.bread.com/img/120_main.jpg",
-        latitude: 36.3276,
-        longitude: 127.4273,
-        distance: 350,
-        rating: 4.8,
-        reviewCount: 15234,
-        tags: ["대전 대표", "튀김소보로", "웨이팅필수"],
-        isOpen: true
-      }
-    ]
-  };
+  const userLat = parseFloat(lat);
+  const userLon = parseFloat(lon);
+  const radiusKm = parseFloat(radius);
 
-  res.json(responseWrapper("SUCCESS", "요청이 성공하였습니다.", mockData));
+  const distanceExpr = `(6371 * acos(LEAST(1.0, cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2)) + sin(radians($1)) * sin(radians(latitude)))))`;
+
+  const params = [userLat, userLon, radiusKm];
+  let paramIndex = 4;
+  let whereClause = `WHERE ${distanceExpr} <= $3`;
+
+  if (keyword) {
+    const kw = `%${keyword}%`;
+    whereClause += ` AND (name ILIKE $${paramIndex} OR COALESCE(special_menu, '') ILIKE $${paramIndex + 1})`;
+    params.push(kw, kw);
+    paramIndex += 2;
+  }
+
+  if (district && district !== '전체') {
+    whereClause += ` AND address ILIKE $${paramIndex}`;
+    params.push(`%${district}%`);
+    paramIndex++;
+  }
+
+  const orderClause = sort === 'RATING' ? 'ORDER BY rating DESC NULLS LAST'
+    : sort === 'LATEST' ? 'ORDER BY created_at DESC'
+    : `ORDER BY ${distanceExpr} ASC`;
+
+  try {
+    const result = await pool.query(
+      `SELECT id, name, address, latitude, longitude, rating, opening_hours, photo_reference, description, amenities,
+              ${distanceExpr} AS distance
+       FROM bakeries ${whereClause} ${orderClause}`,
+      params
+    );
+
+    const bakeries = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      imageUrls: row.photo_reference
+        ? [`https://places.googleapis.com/v1/${row.photo_reference}/media?maxWidthPx=800&key=${process.env.GOOGLE_PLACES_API_KEY}`]
+        : [],
+      latitude: row.latitude,
+      longitude: row.longitude,
+      distance: Math.round(row.distance * 100) / 100,
+      rating: row.rating ? parseFloat(row.rating) : null,
+      reviewCount: 0,
+      isFavorite: false,
+      openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
+      amenities: row.amenities ?? [],
+      description: row.description ?? null,
+    }));
+
+    res.json(responseWrapper("SUCCESS", "요청이 성공하였습니다.", { totalCount: bakeries.length, bakeries }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
 });
 
 
@@ -194,46 +244,45 @@ app.get('/api/v1/bakeries', (req, res) => {
  *               message: 존재하지 않는 빵집입니다.
  *               data: null
  */
-app.get('/api/v1/bakeries/:bakeryId', (req, res) => {
+app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
   const bakeryId = parseInt(req.params.bakeryId, 10);
 
   if (isNaN(bakeryId)) {
     return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
   }
-  if (bakeryId === 999) { // 404 에러 테스트용 더미 ID
-    return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
-  }
 
-  // 명세서 기반 1-2 더미 데이터 [cite: 60-100]
-  const mockData = {
-    bakeryInfo: {
-      id: bakeryId,
-      name: "성심당 본점",
-      imageUrls: [
-        "https://cdn.bread.com/img/120_1.jpg",
-        "https://cdn.bread.com/img/120_2.jpg",
-        "https://cdn.bread.com/img/120_3.jpg"
-      ],
-      address: "대전광역시 중구 대종로 480번길 15",
-      roadAddress: "대전광역시 중구 은행동 145",
-      phoneNumber: "042-256-7720",
-      homepageUrl: "https://sungsimdang.co.kr",
-      businessHours: "08:00 22:00",
-      description: "1956년 대전역 앞 작은 찐빵집에서 시작된 대전의 문화입니다.",
-      amenities: ["PARKING", "PACKING", "WIFI", "RESTROOM"],
-      representativeMenus: ["튀김소보로", "판타롱부추빵", "명란바게트"],
-      stats: {
-        rating: 4.8,
-        reviewCount: 15234,
-        favoriteCount: 4500
-      },
-      userAction: {
-        isFavorite: true
-      }
+  try {
+    const result = await pool.query('SELECT * FROM bakeries WHERE id = $1', [bakeryId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json(responseWrapper("ERROR_NOT_FOUND", "존재하지 않는 빵집입니다."));
     }
-  };
 
-  res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", mockData));
+    const row = result.rows[0];
+    const data = {
+      id: row.id,
+      name: row.name,
+      address: row.address,
+      imageUrls: row.photo_reference
+        ? [`https://places.googleapis.com/v1/${row.photo_reference}/media?maxWidthPx=800&key=${process.env.GOOGLE_PLACES_API_KEY}`]
+        : [],
+      latitude: row.latitude,
+      longitude: row.longitude,
+      phoneNumber: row.phone_number ?? null,
+      description: row.description ?? null,
+      rating: row.rating ? parseFloat(row.rating) : null,
+      reviewCount: 0,
+      isFavorite: false,
+      openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
+      openingHoursAll: row.opening_hours ?? null,
+      amenities: row.amenities ?? [],
+    };
+
+    res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
 });
 
 /**
@@ -518,25 +567,31 @@ app.get('/api/v1/users/favorites', (req, res) => {
   const hasLocation = lat && lon;
 
   const mockData = {
-    totalCount: 5,
+    totalCount: 2,
     favorites: [
       {
         id: 120,
         name: "성심당 본점",
-        thumbnailUrl: "https://cdn.bread.com/img/120_main.jpg",
         address: "대전광역시 중구 은행동",
+        imageUrls: ["https://cdn.bread.com/img/120_main.jpg"],
+        latitude: 36.3276,
+        longitude: 127.4273,
         rating: 4.8,
         reviewCount: 15234,
-        distance: hasLocation ? 350 : null
+        isFavorite: true,
+        distance: hasLocation ? 0.35 : null
       },
       {
         id: 121,
         name: "하레하레 갤러리아점",
-        thumbnailUrl: "https://cdn.bread.com/img/121_main.jpg",
         address: "대전광역시 서구 둔산동",
+        imageUrls: ["https://cdn.bread.com/img/121_main.jpg"],
+        latitude: 36.3504,
+        longitude: 127.3845,
         rating: 4.6,
         reviewCount: 890,
-        distance: hasLocation ? 800 : null
+        isFavorite: true,
+        distance: hasLocation ? 0.8 : null
       }
     ]
   };
@@ -638,39 +693,87 @@ app.get('/api/v1/bakeries/:bakeryId/reviews', (req, res) => {
       currentPage: page,
       totalPages: 5,
       totalElements: 48,
-      isLast: page >= 4 // 5페이지(인덱스 4)면 마지막 페이지로 간주
+      isLast: page >= 4
     },
     reviews: [
       {
-        reviewId: 1001,
-        userInfo: {
-          userId: 50,
-          nickname: "빵순이",
-          profileImageUrl: "https://cdn.bread.com/face.jpg"
-        },
+        id: 1001,
+        bakeryId: bakeryId,
+        userName: "빵순이",
+        userProfileImage: "https://cdn.bread.com/face.jpg",
         rating: 5,
         content: "대전 오면 무조건 들러야 합니다. 튀소 최고!",
-        reviewImages: [
-          "https://cdn.bread.com/review1.jpg"
-        ],
+        imageUrls: ["https://cdn.bread.com/review1.jpg"],
         createdAt: "2026-01-26"
       },
       {
-        reviewId: 1002,
-        userInfo: {
-          userId: 33,
-          nickname: "대전토박이",
-          profileImageUrl: null
-        },
+        id: 1002,
+        bakeryId: bakeryId,
+        userName: "대전토박이",
+        userProfileImage: null,
         rating: 4,
         content: "사람이 너무 많아서 별 하나 뺍니다.",
-        reviewImages: [],
+        imageUrls: [],
         createdAt: "2026-01-25"
       }
     ]
   };
 
   res.json(responseWrapper("SUCCESS", "리뷰 목록 조회가 성공하였습니다.", mockData));
+});
+
+// 관리자 - 빵집 전체 목록 조회
+app.get('/api/v1/admin/bakeries', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, address, description, amenities, special_menu FROM bakeries ORDER BY id'
+    );
+    const bakeries = result.rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      address: r.address,
+      description: r.description ?? null,
+      amenities: r.amenities ?? [],
+      specialMenu: r.special_menu ?? null,
+    }));
+    res.json(responseWrapper("SUCCESS", "조회 성공", { bakeries }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
+
+// 관리자 - 빵집 정보 수정
+app.patch('/api/v1/admin/bakeries/:bakeryId', async (req, res) => {
+  const bakeryId = parseInt(req.params.bakeryId, 10);
+  if (isNaN(bakeryId)) {
+    return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
+  }
+
+  const { description, specialMenu, amenities } = req.body;
+  const updates = [];
+  const params = [];
+  let idx = 1;
+
+  if (description !== undefined) { updates.push(`description = $${idx++}`); params.push(description || null); }
+  if (specialMenu !== undefined) { updates.push(`special_menu = $${idx++}`); params.push(specialMenu || null); }
+  if (amenities !== undefined) { updates.push(`amenities = $${idx++}`); params.push(amenities); }
+
+  if (updates.length === 0) {
+    return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "수정할 항목이 없습니다."));
+  }
+
+  params.push(bakeryId);
+  try {
+    await pool.query(
+      `UPDATE bakeries SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${idx}`,
+      params
+    );
+    res.json(responseWrapper("SUCCESS", "수정되었습니다.", null));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
 });
 
 // 서버 실행
