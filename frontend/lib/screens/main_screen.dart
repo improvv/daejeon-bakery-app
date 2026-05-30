@@ -225,72 +225,76 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _sheetController,
-        builder: (context, _) {
-          final h = _sheetController.value;
-          final isExpanded = _bottomSheetState == BottomSheetState.expanded;
-          final fabBottom = _bakeries.isNotEmpty ? h + 16 : 16.0;
+      body: Stack(
+        children: [
+          // 지도 - AnimatedBuilder 밖에 고정하여 바텀시트 애니메이션과 완전 분리
+          Positioned.fill(
+            child: MapPlaceholder(
+              bakeries: _bakeries,
+              onMarkerTap: _onBakeryTap,
+              onMapCreated: (controller) => _mapController = controller,
+              currentLocation: _currentLocation,
+            ),
+          ),
 
-          return Stack(
-            children: [
-              // 지도
-              Positioned.fill(
-                child: MapPlaceholder(
-                  bakeries: _bakeries,
-                  onMarkerTap: _onBakeryTap,
-                  onMapCreated: (controller) => _mapController = controller,
-                  bottomPadding: h,
-                  currentLocation: _currentLocation,
-                ),
-              ),
+          // 검색창 (지도 위 고정)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: _buildSearchBar(),
+          ),
 
-              // 검색창
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                right: 16,
-                child: _buildSearchBar(),
-              ),
+          // 카테고리 칩 (지도 위 고정)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16 + 52 + 10,
+            left: 0,
+            right: 0,
+            child: _buildCategoryChips(),
+          ),
 
-              // 카테고리 칩
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16 + 52 + 10,
-                left: 0,
-                right: 0,
-                child: _buildCategoryChips(),
-              ),
+          // 바텀시트 + FAB — 이 둘만 AnimatedBuilder로 감싸서 애니메이션 처리
+          AnimatedBuilder(
+            animation: _sheetController,
+            builder: (context, _) {
+              final h = _sheetController.value;
+              final isExpanded = _bottomSheetState == BottomSheetState.expanded;
+              final fabBottom = _bakeries.isNotEmpty ? h + 16 : 16.0;
 
-              // 현재 위치 FAB
-              Positioned(
-                right: 16,
-                bottom: fabBottom,
-                child: IgnorePointer(
-                  ignoring: isExpanded,
-                  child: AnimatedOpacity(
-                    opacity: isExpanded ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: FloatingActionButton(
-                      heroTag: 'myLocationBtn',
-                      onPressed: _moveToCurrentLocation,
-                      backgroundColor: AppColors.surface,
-                      elevation: 3,
-                      shape: const CircleBorder(),
-                      child: const Icon(Icons.my_location_rounded, color: AppColors.crustBrown),
+              return Stack(
+                children: [
+                  // 현재 위치 FAB
+                  Positioned(
+                    right: 16,
+                    bottom: fabBottom,
+                    child: IgnorePointer(
+                      ignoring: isExpanded,
+                      child: AnimatedOpacity(
+                        opacity: isExpanded ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: FloatingActionButton(
+                          heroTag: 'myLocationBtn',
+                          onPressed: _moveToCurrentLocation,
+                          backgroundColor: AppColors.surface,
+                          elevation: 3,
+                          shape: const CircleBorder(),
+                          child: const Icon(Icons.my_location_rounded, color: AppColors.crustBrown),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              // 바텀시트
-              if (_bakeries.isNotEmpty)
-                Positioned(
-                  left: 0, right: 0, bottom: 0,
-                  child: _buildBottomSheet(h),
-                ),
-            ],
-          );
-        },
+                  // 바텀시트
+                  if (_bakeries.isNotEmpty)
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: _buildBottomSheet(h),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
