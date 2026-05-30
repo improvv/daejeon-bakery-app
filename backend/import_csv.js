@@ -64,13 +64,47 @@ async function run() {
     // phone_number
     const phoneNumber = row.phoneNumber?.trim() === '-' ? null : row.phoneNumber?.trim() || null;
 
-    const found = await pool.query(
+    // 1차: 이름으로 매칭
+    let found = await pool.query(
       'SELECT id FROM bakeries WHERE name = $1',
       [name]
     );
 
+    // 2차: 좌표로 매칭 (반경 50m 이내)
+    if (found.rows.length === 0 && row.latitude && row.longitude) {
+      const lat = parseFloat(row.latitude);
+      const lon = parseFloat(row.longitude);
+      found = await pool.query(
+        `SELECT id, name FROM bakeries
+         WHERE (6371000 * acos(LEAST(1.0,
+           cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2))
+           + sin(radians($1)) * sin(radians(latitude))
+         ))) < 50
+         ORDER BY (6371000 * acos(LEAST(1.0,
+           cos(radians($1)) * cos(radians(latitude)) * cos(radians(longitude) - radians($2))
+           + sin(radians($1)) * sin(radians(latitude))
+         ))) ASC
+         LIMIT 1`,
+        [lat, lon]
+      );
+      if (found.rows.length > 0) {
+        console.log(`🔍 좌표매칭: "${name}" → "${found.rows[0].name}"`);
+      }
+    }
+
     if (found.rows.length === 0) {
-      notFound.push(name);
+      // DB에 없으면 CSV 데이터로 신규 INSERT
+      const lat = parseFloat(row.latitude);
+      const lon = parseFloat(row.longitude);
+      if (!lat || !lon) { notFound.push(name); continue; }
+
+      await pool.query(
+        `INSERT INTO bakeries (name, address, latitude, longitude, phone_number, opening_hours, amenities, special_menu, google_place_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [name, row.address || null, lat, lon, phoneNumber, openingHours, amenities, specialMenu, `csv_${name.replace(/\s/g, '_')}`]
+      );
+      updated++;
+      console.log(`➕ 추가: ${name}`);
       continue;
     }
 
@@ -82,7 +116,7 @@ async function run() {
         phone_number  = COALESCE(phone_number, $4),
         updated_at    = NOW()
        WHERE id = $5`,
-      [specialMenu, amenities, JSON.stringify(openingHours), phoneNumber, found.rows[0].id]
+      [specialMenu, amenities, openingHours, phoneNumber, found.rows[0].id]
     );
     updated++;
     console.log(`✅ ${name}`);
