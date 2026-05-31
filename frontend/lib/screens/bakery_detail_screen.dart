@@ -9,6 +9,7 @@ import '../utils/favorites_service.dart';
 import '../utils/time_utils.dart';
 import '../widgets/image_slider.dart';
 import '../widgets/review_item.dart';
+import 'review_write_screen.dart';
 
 class BakeryDetailScreen extends StatefulWidget {
   final int bakeryId;
@@ -66,13 +67,19 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
   Future<void> _loadReviews() async {
     final response = await _repository.getBakeryReviews(widget.bakeryId);
     setState(() {
-      _reviews = response.isSuccess && response.data != null
-          ? response.data!
-          : [
-              Review(id: 1, bakeryId: widget.bakeryId, userName: '김민수', rating: 5.0, content: '튀김소보루가 정말 맛있어요! 대전 오면 꼭 들리는 곳입니다.', imageUrls: [], createdAt: DateTime.now().subtract(const Duration(days: 2))),
-              Review(id: 2, bakeryId: widget.bakeryId, userName: '이지은', rating: 4.5, content: '부추빵이 특이하고 맛있네요. 줄이 길지만 기다릴 가치가 있어요.', imageUrls: [], createdAt: DateTime.now().subtract(const Duration(days: 5))),
-            ];
+      _reviews = response.isSuccess && response.data != null ? response.data! : [];
     });
+  }
+
+  Future<void> _openReviewWrite() async {
+    if (_bakery == null) return;
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewWriteScreen(bakeryId: widget.bakeryId, bakeryName: _bakery!.name),
+      ),
+    );
+    if (result == true) _loadReviews();
   }
 
   Future<void> _toggleFavorite() async {
@@ -358,7 +365,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                         Text('리뷰 (${_reviews.length})',
                             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                         TextButton.icon(
-                          onPressed: () {},
+                          onPressed: _openReviewWrite,
                           icon: const Icon(Icons.edit_outlined, size: 15),
                           label: const Text('리뷰 작성'),
                           style: TextButton.styleFrom(

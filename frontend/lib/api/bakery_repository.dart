@@ -73,6 +73,22 @@ class BakeryRepository {
     return response;
   }
 
+  /// 리뷰 작성
+  Future<ApiResponse<void>> postReview(int bakeryId, {
+    required String nickname,
+    required double rating,
+    required String content,
+    String? imageData,
+  }) async {
+    final body = <String, dynamic>{
+      'nickname': nickname,
+      'rating': rating,
+      'content': content,
+      if (imageData != null) 'imageData': imageData,
+    };
+    return _apiClient.post<void>('/api/v1/bakeries/$bakeryId/reviews', body: body);
+  }
+
   /// 검색 기록 조회
   Future<ApiResponse<List<SearchHistory>>> getSearchHistory() async {
     final response = await _apiClient.get<List<SearchHistory>>(
