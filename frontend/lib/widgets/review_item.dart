@@ -5,7 +5,8 @@ import '../theme/app_colors.dart';
 
 class ReviewItem extends StatelessWidget {
   final Review review;
-  const ReviewItem({Key? key, required this.review}) : super(key: key);
+  final VoidCallback? onDelete;
+  const ReviewItem({Key? key, required this.review, this.onDelete}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +43,24 @@ class ReviewItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      review.userName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            review.userName,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (onDelete != null)
+                          GestureDetector(
+                            onTap: onDelete,
+                            child: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.textHint),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Row(

@@ -6,6 +6,7 @@ import '../models/bakery.dart';
 import '../models/review.dart';
 import '../theme/app_colors.dart';
 import '../utils/favorites_service.dart';
+import '../utils/my_reviews_service.dart';
 import '../utils/time_utils.dart';
 import '../widgets/image_slider.dart';
 import '../widgets/review_item.dart';
@@ -25,6 +26,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
 
   Bakery? _bakery;
   List<Review> _reviews = [];
+  Set<int> _myReviewIds = {};
   bool _isLoading = true;
   bool _isFavorite = false;
   bool _isScrolled = false;
@@ -38,6 +40,20 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
     });
     _loadBakeryDetail();
     _loadReviews();
+    _loadMyReviewIds();
+  }
+
+  Future<void> _loadMyReviewIds() async {
+    final ids = await MyReviewsService.getIds();
+    setState(() => _myReviewIds = ids.toSet());
+  }
+
+  Future<void> _deleteReview(int reviewId) async {
+    await _repository.deleteReview(widget.bakeryId, reviewId);
+    await MyReviewsService.remove(reviewId);
+    _loadReviews();
+    _loadMyReviewIds();
+    _loadBakeryDetail();
   }
 
   @override
@@ -389,7 +405,10 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                         ),
                       )
                     else
-                      ...(_reviews.map((review) => ReviewItem(review: review))),
+                      ...(_reviews.map((review) => ReviewItem(
+                        review: review,
+                        onDelete: _myReviewIds.contains(review.id) ? () => _deleteReview(review.id) : null,
+                      ))),
 
                     const SizedBox(height: 20),
                   ],

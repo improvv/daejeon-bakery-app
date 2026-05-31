@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../api/bakery_repository.dart';
 import '../theme/app_colors.dart';
+import '../utils/my_reviews_service.dart';
 
 class ReviewWriteScreen extends StatefulWidget {
   final int bakeryId;
@@ -73,6 +74,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
     if (!mounted) return;
 
     if (response.isSuccess) {
+      if (response.data != null) await MyReviewsService.add(response.data!);
+      if (!mounted) return;
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

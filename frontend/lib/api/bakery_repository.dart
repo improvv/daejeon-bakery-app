@@ -74,7 +74,7 @@ class BakeryRepository {
   }
 
   /// 리뷰 작성
-  Future<ApiResponse<void>> postReview(int bakeryId, {
+  Future<ApiResponse<int>> postReview(int bakeryId, {
     required String nickname,
     required double rating,
     required String content,
@@ -86,7 +86,16 @@ class BakeryRepository {
       'content': content,
       if (imageData != null) 'imageData': imageData,
     };
-    return _apiClient.post<void>('/api/v1/bakeries/$bakeryId/reviews', body: body);
+    return _apiClient.post<int>(
+      '/api/v1/bakeries/$bakeryId/reviews',
+      body: body,
+      fromJson: (json) => (json as Map<String, dynamic>)['id'] as int,
+    );
+  }
+
+  /// 리뷰 삭제
+  Future<ApiResponse<void>> deleteReview(int bakeryId, int reviewId) async {
+    return _apiClient.delete<void>('/api/v1/bakeries/$bakeryId/reviews/$reviewId');
   }
 
   /// 검색 기록 조회
