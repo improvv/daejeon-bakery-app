@@ -5,17 +5,17 @@ import '../models/bakery.dart';
 
 class MapPlaceholder extends StatefulWidget {
   final List<Bakery> bakeries;
+  final List<Bakery> inactiveBakeries;
   final Function(Bakery)? onMarkerTap;
   final void Function(GoogleMapController)? onMapCreated;
-  final double bottomPadding;
   final LatLng? currentLocation;
 
   const MapPlaceholder({
     Key? key,
     this.bakeries = const [],
+    this.inactiveBakeries = const [],
     this.onMarkerTap,
     this.onMapCreated,
-    this.bottomPadding = 0.0,
     this.currentLocation,
   }) : super(key: key);
 
@@ -131,9 +131,24 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
     }).toSet();
   }
 
-  // 전체 마커 = 빵집 + 현재 위치(있을 때만)
+  // 비활성 마커 — 선택된 구 외 빵집을 흐릿하게 표시, 탭 불가
+  Set<Marker> _buildInactiveMarkers() {
+    return widget.inactiveBakeries.map((bakery) {
+      return Marker(
+        markerId: MarkerId('inactive_${bakery.id}'),
+        position: LatLng(bakery.latitude, bakery.longitude),
+        alpha: 0.3,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        consumeTapEvents: true,
+        infoWindow: InfoWindow.noText,
+      );
+    }).toSet();
+  }
+
+  // 전체 마커 = 비활성 → 활성 → 현재 위치 순 (z-order)
   Set<Marker> _buildAllMarkers() {
-    final markers = _buildBakeryMarkers();
+    final markers = _buildInactiveMarkers();
+    markers.addAll(_buildBakeryMarkers());
     if (_currentLocationMarker != null) {
       markers.add(_currentLocationMarker!);
     }
@@ -178,7 +193,7 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
       myLocationButtonEnabled: false,
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
-      padding: EdgeInsets.only(bottom: widget.bottomPadding),
+      padding: EdgeInsets.zero,
     );
   }
 }

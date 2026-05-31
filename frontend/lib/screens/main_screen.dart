@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../theme/app_colors.dart';
+import '../utils/time_utils.dart';
 import '../widgets/bakery_list_item.dart';
 import '../widgets/map_placeholder.dart';
 import 'bakery_detail_screen.dart';
@@ -35,9 +36,46 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   late final AnimationController _sheetController;
 
-  // 카테고리 칩
-  static const _categories = ['전체', '🥐 크루아상', '🍰 케이크', '🍞 식빵', '☕ 카페형'];
-  String _selectedCategory = '전체';
+  // 구 필터 칩
+  static const _districts = ['전체', '동구', '대덕구', '서구', '중구', '유성구'];
+
+  static const _districtCenters = {
+    '전체':  LatLng(36.3500, 127.3845),
+    '동구':  LatLng(36.3476, 127.4534),
+    '대덕구': LatLng(36.3748, 127.4152), // 오문창 순대국밥 인근
+    '서구':  LatLng(36.3538, 127.3823),
+    '중구':  LatLng(36.3271, 127.4275),
+    '유성구': LatLng(36.3624, 127.3564),
+  };
+
+  String _selectedDistrict = '전체';
+  bool _showOpenOnly = false;
+
+  // 선택된 구에 해당하지 않는 빵집 (비활성 마커용)
+  List<Bakery> get _inactiveBakeries {
+    if (_selectedDistrict == '전체') return const [];
+    return _bakeries.where((b) => !b.address.contains(_selectedDistrict)).toList();
+  }
+
+  List<Bakery> get _filteredBakeries {
+    var list = _selectedDistrict == '전체'
+        ? _bakeries
+        : _bakeries.where((b) => b.address.contains(_selectedDistrict)).toList();
+    if (_showOpenOnly) {
+      list = list.where((b) => isOpenNow(b.openingHours)).toList();
+    }
+    return list;
+  }
+
+  void _onDistrictSelected(String district) {
+    setState(() => _selectedDistrict = district);
+    final center = _districtCenters[district];
+    if (center != null && _mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(center, district == '전체' ? 13.0 : 14.5),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -134,72 +172,91 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _sheetController,
-        builder: (context, _) {
-          final h = _sheetController.value;
-          final isExpanded = _bottomSheetState == BottomSheetState.expanded;
-          final fabBottom = _bakeries.isNotEmpty ? h + 16 : 16.0;
+      body: Stack(
+        children: [
+          // 지도 - AnimatedBuilder 밖에 고정하여 바텀시트 애니메이션과 완전 분리
+          Positioned.fill(
+            child: MapPlaceholder(
+              bakeries: _filteredBakeries,
+              inactiveBakeries: _inactiveBakeries,
+              onMarkerTap: _onBakeryTap,
+              onMapCreated: (controller) => _mapController = controller,
+              currentLocation: _currentLocation,
+            ),
+          ),
 
-          return Stack(
-            children: [
-              // 지도
-              Positioned.fill(
-                child: MapPlaceholder(
-                  bakeries: _bakeries,
-                  onMarkerTap: _onBakeryTap,
-                  onMapCreated: (controller) => _mapController = controller,
-                  bottomPadding: h,
-                  currentLocation: _currentLocation,
-                ),
+          // 검색창 (지도 위 고정)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: _buildSearchBar(),
+          ),
+
+          // 구 필터 칩 (지도 위 고정)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16 + 52 + 10,
+            left: 0,
+            right: 0,
+            child: _buildDistrictChips(),
+          ),
+
+          // 줌 버튼 — 바텀시트 완전히 닫혔을 때만 왼쪽 하단에 표시
+          Positioned(
+            left: 16,
+            bottom: 80,
+            child: IgnorePointer(
+              ignoring: _bottomSheetState != BottomSheetState.hidden,
+              child: AnimatedOpacity(
+                opacity: _bottomSheetState == BottomSheetState.hidden ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: _buildZoomButtons(),
               ),
+            ),
+          ),
 
-              // 검색창
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                right: 16,
-                child: _buildSearchBar(),
-              ),
+          // 바텀시트 + FAB — 이 둘만 AnimatedBuilder로 감싸서 애니메이션 처리
+          AnimatedBuilder(
+            animation: _sheetController,
+            builder: (context, _) {
+              final h = _sheetController.value;
+              final isExpanded = _bottomSheetState == BottomSheetState.expanded;
+              final fabBottom = _filteredBakeries.isNotEmpty ? h + 16 : 16.0;
 
-              // 카테고리 칩
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16 + 52 + 10,
-                left: 0,
-                right: 0,
-                child: _buildCategoryChips(),
-              ),
-
-              // 현재 위치 FAB
-              Positioned(
-                right: 16,
-                bottom: fabBottom,
-                child: IgnorePointer(
-                  ignoring: isExpanded,
-                  child: AnimatedOpacity(
-                    opacity: isExpanded ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: FloatingActionButton(
-                      heroTag: 'myLocationBtn',
-                      onPressed: _moveToCurrentLocation,
-                      backgroundColor: AppColors.surface,
-                      elevation: 3,
-                      shape: const CircleBorder(),
-                      child: const Icon(Icons.my_location_rounded, color: AppColors.crustBrown),
+              return Stack(
+                children: [
+                  // 현재 위치 FAB
+                  Positioned(
+                    right: 16,
+                    bottom: fabBottom,
+                    child: IgnorePointer(
+                      ignoring: isExpanded,
+                      child: AnimatedOpacity(
+                        opacity: isExpanded ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: FloatingActionButton(
+                          heroTag: 'myLocationBtn',
+                          onPressed: _moveToCurrentLocation,
+                          backgroundColor: AppColors.surface,
+                          elevation: 3,
+                          shape: const CircleBorder(),
+                          child: const Icon(Icons.my_location_rounded, color: AppColors.crustBrown),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              // 바텀시트
-              if (_bakeries.isNotEmpty)
-                Positioned(
-                  left: 0, right: 0, bottom: 0,
-                  child: _buildBottomSheet(h),
-                ),
-            ],
-          );
-        },
+                  // 바텀시트
+                  if (_filteredBakeries.isNotEmpty)
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: _buildBottomSheet(h),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -245,29 +302,71 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildCategoryChips() {
+  Widget _buildDistrictChips() {
     return SizedBox(
       height: 36,
-      child: ListView.builder(
+      child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         clipBehavior: Clip.none,
-        itemCount: _categories.length,
-        itemBuilder: (_, i) {
-          final cat = _categories[i];
-          final isSelected = cat == _selectedCategory;
-          return GestureDetector(
-            onTap: () => setState(() => _selectedCategory = cat),
+        children: [
+          // 구 선택 칩들
+          ..._districts.map((district) {
+            final isSelected = district == _selectedDistrict;
+            return GestureDetector(
+              onTap: () => _onDistrictSelected(district),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.creamFill : AppColors.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isSelected ? AppColors.crustBrown : AppColors.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.crustBrown.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  district,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? AppColors.crustBrown : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          // 구 / 영업중 구분선
+          Container(
+            width: 1,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            color: AppColors.border,
+          ),
+
+          // 영업중 토글 칩
+          GestureDetector(
+            onTap: () => setState(() => _showOpenOnly = !_showOpenOnly),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              margin: const EdgeInsets.only(right: 8),
+              margin: const EdgeInsets.only(left: 4),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.creamFill : AppColors.surface,
+                color: _showOpenOnly ? const Color(0xFFE8F5E9) : AppColors.surface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: isSelected ? AppColors.crustBrown : AppColors.border,
-                  width: isSelected ? 1.5 : 1,
+                  color: _showOpenOnly ? const Color(0xFF388E3C) : AppColors.border,
+                  width: _showOpenOnly ? 1.5 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -277,17 +376,78 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              child: Text(
-                cat,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? AppColors.crustBrown : AppColors.textPrimary,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _showOpenOnly ? const Color(0xFF388E3C) : AppColors.textHint,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '영업중',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: _showOpenOnly ? FontWeight.w600 : FontWeight.w400,
+                      color: _showOpenOnly ? const Color(0xFF388E3C) : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoomButtons() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.crustBrown.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: Colors.transparent,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+            child: InkWell(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+              onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
+              child: const Padding(
+                padding: EdgeInsets.all(11),
+                child: Icon(Icons.add_rounded, size: 20, color: AppColors.crustBrown),
+              ),
+            ),
+          ),
+          Container(height: 1, color: AppColors.border),
+          Material(
+            color: Colors.transparent,
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
+            child: InkWell(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
+              onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
+              child: const Padding(
+                padding: EdgeInsets.all(11),
+                child: Icon(Icons.remove_rounded, size: 20, color: AppColors.crustBrown),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -363,7 +523,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${_bakeries.length}곳',
+                          '${_filteredBakeries.length}곳',
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.crustBrown,
@@ -402,10 +562,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                           physics: _bottomSheetState == BottomSheetState.expanded
                               ? const AlwaysScrollableScrollPhysics()
                               : const NeverScrollableScrollPhysics(),
-                          itemCount: _bakeries.length,
+                          itemCount: _filteredBakeries.length,
                           itemBuilder: (context, index) => BakeryListItem(
-                            bakery: _bakeries[index],
-                            onTap: () => _onBakeryTap(_bakeries[index]),
+                            bakery: _filteredBakeries[index],
+                            onTap: () => _onBakeryTap(_filteredBakeries[index]),
                           ),
                         ),
                 ),
