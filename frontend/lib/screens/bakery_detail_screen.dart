@@ -95,7 +95,10 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
         builder: (_) => ReviewWriteScreen(bakeryId: widget.bakeryId, bakeryName: _bakery!.name),
       ),
     );
-    if (result == true) _loadReviews();
+    if (result == true) {
+      _loadReviews();
+      _loadBakeryDetail();
+    }
   }
 
   Future<void> _toggleFavorite() async {
