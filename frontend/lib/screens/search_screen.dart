@@ -5,24 +5,24 @@ import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../models/search_history.dart';
 import '../theme/app_colors.dart';
+import '../utils/search_history_service.dart';
 import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final Function(int)? onNavigateToTab;
-
   const SearchScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  State<SearchScreen> createState() => SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class SearchScreenState extends State<SearchScreen> {
   final BakeryRepository _repository = BakeryRepository();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
 
-  List<SearchHistory> _searchHistory = [];
+  List<String> _searchHistory = [];
   List<Bakery> _searchResults = [];
   Set<DistrictFilter> _selectedDistricts = {DistrictFilter.all};
   bool _isLoading = false;
@@ -42,20 +42,22 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSearchHistory() async {
-    final response = await _repository.getSearchHistory();
+  void reset() {
+    _debounceTimer?.cancel();
+    _searchController.clear();
     setState(() {
-      _searchHistory = response.isSuccess && response.data != null
-          ? response.data!
-          : [
-              SearchHistory(id: 1, keyword: '성심당',    searchedAt: DateTime.now().subtract(const Duration(hours: 2))),
-              SearchHistory(id: 2, keyword: '빵긍정',    searchedAt: DateTime.now().subtract(const Duration(days: 1))),
-              SearchHistory(id: 3, keyword: '오븐이야기', searchedAt: DateTime.now().subtract(const Duration(days: 3))),
-            ];
+      _isSearching = false;
+      _searchResults = [];
+      _isLoading = false;
+      _selectedDistricts = {DistrictFilter.all};
     });
   }
 
-  // 실제 검색 실행
+  Future<void> _loadSearchHistory() async {
+    final history = await SearchHistoryService.getAll();
+    setState(() => _searchHistory = history);
+  }
+
   Future<void> _search(String keyword) async {
     if (keyword.trim().isEmpty) {
       setState(() { _isSearching = false; _searchResults = []; });
@@ -63,7 +65,6 @@ class _SearchScreenState extends State<SearchScreen> {
     }
     setState(() { _isLoading = true; _isSearching = true; });
 
-    // 구 필터: 1개만 선택된 경우 백엔드에 전달, 복수 선택 시 전체 조회
     final selectedDistricts = _selectedDistricts.where((d) => d != DistrictFilter.all).toList();
     final districtQuery = selectedDistricts.length == 1 ? selectedDistricts.first.displayName : null;
 
@@ -76,35 +77,35 @@ class _SearchScreenState extends State<SearchScreen> {
     );
 
     if (!mounted) return;
+    var results = response.isSuccess && response.data != null ? response.data! : <Bakery>[];
+
+    // 복수 구 선택 시 클라이언트 사이드 필터링
+    if (selectedDistricts.length > 1) {
+      results = results.where((b) =>
+        selectedDistricts.any((d) => b.address.contains(d.displayName))
+      ).toList();
+    }
+
     setState(() {
       _isLoading = false;
-      _searchResults = response.isSuccess && response.data != null ? response.data! : [];
+      _searchResults = results;
     });
   }
 
-  // 타이핑할 때 400ms 후 자동 검색
   void _onSearchChanged(String value) {
-    setState(() {}); // X 버튼 표시 갱신
+    setState(() {});
     _debounceTimer?.cancel();
-
     if (value.trim().isEmpty) {
       setState(() { _isSearching = false; _searchResults = []; });
       return;
     }
-
     setState(() { _isSearching = true; _isLoading = true; });
     _debounceTimer = Timer(const Duration(milliseconds: 400), () => _search(value));
   }
 
-  // Enter / 검색 버튼: 즉시 검색
   void _onSearchSubmitted(String value) {
     _debounceTimer?.cancel();
     _search(value);
-  }
-
-  Future<void> _deleteSearchHistory(int historyId) async {
-    await _repository.deleteSearchHistory(historyId);
-    setState(() => _searchHistory.removeWhere((item) => item.id == historyId));
   }
 
   void _onHistoryTap(String keyword) {
@@ -113,7 +114,19 @@ class _SearchScreenState extends State<SearchScreen> {
     _search(keyword);
   }
 
+  Future<void> _removeHistory(String keyword) async {
+    await SearchHistoryService.remove(keyword);
+    setState(() => _searchHistory.remove(keyword));
+  }
+
+  Future<void> _clearAllHistory() async {
+    await SearchHistoryService.clearAll();
+    setState(() => _searchHistory.clear());
+  }
+
   void _onBakeryTap(Bakery bakery) {
+    SearchHistoryService.add(bakery.name);
+    _loadSearchHistory();
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -137,7 +150,6 @@ class _SearchScreenState extends State<SearchScreen> {
       next.contains(filter) ? next.remove(filter) : next.add(filter);
       _selectedDistricts = next.isEmpty ? {DistrictFilter.all} : next;
     }
-    // 검색어가 있으면 필터 변경 시 즉시 재검색
     if (_searchController.text.trim().isNotEmpty) {
       _debounceTimer?.cancel();
       _search(_searchController.text);
@@ -191,16 +203,14 @@ class _SearchScreenState extends State<SearchScreen> {
                 style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: '빵집 이름, 메뉴, 주소 검색',
+                  hintText: '빵집 이름, 메뉴 검색',
                   hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 15),
                   prefixIcon: _isLoading
                       ? const Padding(
                           padding: EdgeInsets.all(12),
                           child: SizedBox(
                             width: 20, height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.crustBrown,
-                            ),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.crustBrown),
                           ),
                         )
                       : const Icon(Icons.search_rounded, color: AppColors.crustBrown, size: 20),
@@ -246,7 +256,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 final isSelected = filter == DistrictFilter.all
                     ? _selectedDistricts.contains(DistrictFilter.all)
                     : _selectedDistricts.contains(filter);
-
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
@@ -281,11 +290,27 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildRecentSearches() {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       children: [
-        const Text('최근 검색',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('최근 검색',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            if (_searchHistory.isNotEmpty)
+              TextButton(
+                onPressed: _clearAllHistory,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textHint,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('모두 지우기', style: TextStyle(fontSize: 13)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
         if (_searchHistory.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
@@ -295,16 +320,16 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           )
         else
-          ..._searchHistory.map((history) => ListTile(
+          ..._searchHistory.map((keyword) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.history_rounded, color: AppColors.textHint, size: 20),
-                title: Text(history.keyword,
+                title: Text(keyword,
                     style: const TextStyle(fontSize: 15, color: AppColors.textPrimary)),
                 trailing: IconButton(
                   icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textHint),
-                  onPressed: () => _deleteSearchHistory(history.id),
+                  onPressed: () => _removeHistory(keyword),
                 ),
-                onTap: () => _onHistoryTap(history.keyword),
+                onTap: () => _onHistoryTap(keyword),
               )),
       ],
     );
@@ -335,8 +360,7 @@ class _SearchScreenState extends State<SearchScreen> {
             const SizedBox(height: 16),
             Text(
               '"${_searchController.text}" 검색 결과가 없어요',
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
             const Text(
