@@ -51,6 +51,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   String _selectedDistrict = '전체';
   bool _showOpenOnly = false;
+  String _selectedSort = '거리순';
 
   // 선택된 구에 해당하지 않는 빵집 (비활성 마커용)
   List<Bakery> get _inactiveBakeries {
@@ -60,10 +61,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   List<Bakery> get _filteredBakeries {
     var list = _selectedDistrict == '전체'
-        ? _bakeries
+        ? List<Bakery>.from(_bakeries)
         : _bakeries.where((b) => b.address.contains(_selectedDistrict)).toList();
     if (_showOpenOnly) {
       list = list.where((b) => isOpenNow(b.openingHours)).toList();
+    }
+    switch (_selectedSort) {
+      case '평점 높은순':
+        list.sort((a, b) => (b.rating).compareTo(a.rating));
+      case '리뷰 많은순':
+        list.sort((a, b) => b.reviewCount.compareTo(a.reviewCount));
+      default:
+        list.sort((a, b) => (a.distance ?? 999).compareTo(b.distance ?? 999));
     }
     return list;
   }
@@ -87,7 +96,27 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       upperBound: _expandedHeight,
       value: _collapsedHeight,
     );
-    _loadBakeries();
+    _initLocationAndLoad();
+  }
+
+  Future<void> _initLocationAndLoad() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.always ||
+          permission == LocationPermission.whileInUse) {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        );
+        final current = LatLng(position.latitude, position.longitude);
+        setState(() => _currentLocation = current);
+        await _loadBakeries(lat: position.latitude, lon: position.longitude);
+        return;
+      }
+    } catch (_) {}
+    await _loadBakeries();
   }
 
   @override
@@ -114,20 +143,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _loadBakeries() async {
+  Future<void> _loadBakeries({double lat = 36.3504, double lon = 127.3845}) async {
     setState(() => _isLoading = true);
-
-    final mockBakeries = [
-      Bakery(id: 1, name: '성심당 본점',   address: '대전광역시 중구 은행동 145',   latitude: 36.3271, longitude: 127.4275, phoneNumber: '042-256-7730', imageUrls: [], rating: 4.8, reviewCount: 1523, distance: 0.35, openingHours: '매일 08:00 - 20:00', specialMenu: '튀김소보루, 부추빵, 판도로', amenities: ['PARKING', 'WIFI']),
-      Bakery(id: 2, name: '빵긍정',         address: '대전광역시 서구 둔산동 920',   latitude: 36.3500, longitude: 127.3800, phoneNumber: '042-123-4567', imageUrls: [], rating: 4.6, reviewCount: 342,  distance: 0.62, openingHours: '화-일 10:00 - 21:00', specialMenu: '크루아상, 바게트',      amenities: ['PACKING']),
-      Bakery(id: 3, name: '오븐이야기',     address: '대전광역시 유성구 봉명동 580', latitude: 36.3700, longitude: 127.3500, phoneNumber: '042-234-5678', imageUrls: [], rating: 4.5, reviewCount: 218,  distance: 0.89, openingHours: '매일 09:00 - 22:00', specialMenu: '수제빵, 케이크',        amenities: ['PARKING', 'PACKING']),
-    ];
-
-    final response = await _repository.getBakeries(latitude: 36.3271, longitude: 127.4275);
-
+    final response = await _repository.getBakeries(latitude: lat, longitude: lon, radius: 15);
     setState(() {
       _isLoading = false;
-      _bakeries = response.isSuccess && response.data != null ? response.data! : mockBakeries;
+      _bakeries = response.isSuccess && response.data != null ? response.data! : [];
     });
   }
 
@@ -552,12 +573,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                             color: AppColors.surfaceAlt,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('거리순', style: TextStyle(fontSize: 12, color: AppColors.textSec)),
-                              SizedBox(width: 4),
-                              Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.textSec),
+                              Text(_selectedSort, style: const TextStyle(fontSize: 12, color: AppColors.textSec)),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.textSec),
                             ],
                           ),
                         ),
@@ -628,10 +649,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           for (final opt in ['거리순', '평점 높은순', '리뷰 많은순'])
             ListTile(
               title: Text(opt, style: const TextStyle(color: AppColors.textPrimary)),
-              trailing: opt == '거리순'
+              trailing: opt == _selectedSort
                   ? const Icon(Icons.check_rounded, color: AppColors.crustBrown)
                   : null,
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                setState(() => _selectedSort = opt);
+                Navigator.pop(context);
+              },
             ),
           const SizedBox(height: 16),
         ],
