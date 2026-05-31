@@ -14,6 +14,8 @@ class RootScreen extends StatefulWidget {
 class _RootScreenState extends State<RootScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
+  final GlobalKey<FavoritesScreenState> _favKey = GlobalKey();
+  final GlobalKey<SearchScreenState> _searchKey = GlobalKey();
 
   late final List<Widget> _screens;
 
@@ -22,12 +24,14 @@ class _RootScreenState extends State<RootScreen>
     super.initState();
     _screens = [
       MainScreen(onNavigateToTab: _onItemTapped),
-      SearchScreen(onNavigateToTab: _onItemTapped),
-      FavoritesScreen(onNavigateToTab: _onItemTapped),
+      SearchScreen(key: _searchKey, onNavigateToTab: _onItemTapped),
+      FavoritesScreen(key: _favKey, onNavigateToTab: _onItemTapped),
     ];
   }
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == 1 && index != 1) _searchKey.currentState?.reset();
+    if (index == 2) _favKey.currentState?.loadFavorites();
     setState(() {
       _selectedIndex = index;
     });
