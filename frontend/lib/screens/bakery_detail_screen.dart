@@ -10,6 +10,7 @@ import '../utils/my_reviews_service.dart';
 import '../utils/time_utils.dart';
 import '../widgets/image_slider.dart';
 import '../widgets/review_item.dart';
+import 'bakery_map_screen.dart';
 import 'review_write_screen.dart';
 
 class BakeryDetailScreen extends StatefulWidget {
@@ -131,17 +132,19 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
-  Future<void> _openMap() async {
+  void _openMap() {
     if (_bakery == null) return;
-    final lat = _bakery!.latitude;
-    final lng = _bakery!.longitude;
-    final kakaoUrl = Uri.parse('kakaomap://look?p=$lat,$lng');
-    final googleUrl = Uri.parse('https://maps.google.com/?q=$lat,$lng');
-    if (await canLaunchUrl(kakaoUrl)) {
-      await launchUrl(kakaoUrl);
-    } else {
-      await launchUrl(googleUrl, mode: LaunchMode.externalApplication);
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BakeryMapScreen(
+          name: _bakery!.name,
+          address: _bakery!.address,
+          latitude: _bakery!.latitude,
+          longitude: _bakery!.longitude,
+        ),
+      ),
+    );
   }
 
   @override
