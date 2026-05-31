@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
@@ -148,18 +149,29 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Future<void> _moveToCurrentLocation() async {
     try {
-      const LatLng mockCurrentLocation = LatLng(36.3325, 127.4342);
-      setState(() => _currentLocation = mockCurrentLocation);
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('위치 권한이 거부되었습니다.');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('위치 권한이 영구적으로 거부되었습니다. 설정에서 허용해주세요.');
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final current = LatLng(position.latitude, position.longitude);
+      setState(() => _currentLocation = current);
       if (_mapController != null) {
-        await _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(mockCurrentLocation, 15.0),
-        );
+        await _mapController!.animateCamera(CameraUpdate.newLatLngZoom(current, 15.0));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('현재 위치를 가져올 수 없습니다.'),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             margin: const EdgeInsets.all(16),
