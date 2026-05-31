@@ -122,7 +122,9 @@ class _BakeryListItemState extends State<BakeryListItem>
                         if (widget.bakery.distance != null) ...[
                           const SizedBox(width: 8),
                           Text(
-                            '${(widget.bakery.distance! * 1000).toInt()}m',
+                            widget.bakery.distance! >= 1
+                                ? '${widget.bakery.distance!.toStringAsFixed(1)}km'
+                                : '${(widget.bakery.distance! * 1000).toInt()}m',
                             style: const TextStyle(fontSize: 12, color: AppColors.textSec),
                           ),
                         ],
