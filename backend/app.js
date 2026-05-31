@@ -716,7 +716,32 @@ app.post('/api/v1/bakeries/:bakeryId/reviews', async (req, res) => {
       'INSERT INTO reviews (bakery_id, nickname, rating, content, image_data) VALUES ($1,$2,$3,$4,$5) RETURNING id',
       [bakeryId, nickname.trim(), parseFloat(rating), content.trim(), imageData || null]
     );
+    // 별점 재계산
+    await pool.query(
+      'UPDATE bakeries SET rating = (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bakery_id = $1) WHERE id = $1',
+      [bakeryId]
+    );
     res.json(responseWrapper("SUCCESS", "리뷰가 등록되었습니다.", { id: result.rows[0].id }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
+
+app.delete('/api/v1/bakeries/:bakeryId/reviews/:reviewId', async (req, res) => {
+  const bakeryId = parseInt(req.params.bakeryId, 10);
+  const reviewId = parseInt(req.params.reviewId, 10);
+  if (isNaN(bakeryId) || isNaN(reviewId)) {
+    return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 ID입니다."));
+  }
+  try {
+    await pool.query('DELETE FROM reviews WHERE id = $1 AND bakery_id = $2', [reviewId, bakeryId]);
+    // 별점 재계산 (리뷰 없으면 null)
+    await pool.query(
+      'UPDATE bakeries SET rating = (SELECT ROUND(AVG(rating)::numeric, 1) FROM reviews WHERE bakery_id = $1) WHERE id = $1',
+      [bakeryId]
+    );
+    res.json(responseWrapper("SUCCESS", "리뷰가 삭제되었습니다.", null));
   } catch (err) {
     console.error(err);
     res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
