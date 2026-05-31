@@ -676,50 +676,51 @@ app.get('/api/v1/users/favorites', (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-app.get('/api/v1/bakeries/:bakeryId/reviews', (req, res) => {
+app.get('/api/v1/bakeries/:bakeryId/reviews', async (req, res) => {
   const bakeryId = parseInt(req.params.bakeryId, 10);
-  
   if (isNaN(bakeryId)) {
     return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
   }
+  try {
+    const result = await pool.query(
+      'SELECT * FROM reviews WHERE bakery_id = $1 ORDER BY created_at DESC',
+      [bakeryId]
+    );
+    const reviews = result.rows.map(r => ({
+      id: r.id,
+      bakeryId: r.bakery_id,
+      userName: r.nickname,
+      rating: parseFloat(r.rating),
+      content: r.content,
+      imageUrls: r.image_data ? [r.image_data] : [],
+      createdAt: r.created_at.toISOString().slice(0, 10),
+    }));
+    res.json(responseWrapper("SUCCESS", "리뷰 목록 조회가 성공하였습니다.", { reviews }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
 
-  // page, size 파라미터 파싱 (기본값 설정 적용)
-  const page = parseInt(req.query.page || 0, 10);
-  const size = parseInt(req.query.size || 10, 10);
-  const sort = req.query.sort || 'LATEST';
-
-  const mockData = {
-    pagination: {
-      currentPage: page,
-      totalPages: 5,
-      totalElements: 48,
-      isLast: page >= 4
-    },
-    reviews: [
-      {
-        id: 1001,
-        bakeryId: bakeryId,
-        userName: "빵순이",
-        userProfileImage: "https://cdn.bread.com/face.jpg",
-        rating: 5,
-        content: "대전 오면 무조건 들러야 합니다. 튀소 최고!",
-        imageUrls: ["https://cdn.bread.com/review1.jpg"],
-        createdAt: "2026-01-26"
-      },
-      {
-        id: 1002,
-        bakeryId: bakeryId,
-        userName: "대전토박이",
-        userProfileImage: null,
-        rating: 4,
-        content: "사람이 너무 많아서 별 하나 뺍니다.",
-        imageUrls: [],
-        createdAt: "2026-01-25"
-      }
-    ]
-  };
-
-  res.json(responseWrapper("SUCCESS", "리뷰 목록 조회가 성공하였습니다.", mockData));
+app.post('/api/v1/bakeries/:bakeryId/reviews', async (req, res) => {
+  const bakeryId = parseInt(req.params.bakeryId, 10);
+  if (isNaN(bakeryId)) {
+    return res.status(400).json(responseWrapper("ERROR_INVALID_PARAM", "유효하지 않은 빵집 ID입니다."));
+  }
+  const { nickname, rating, content, imageData } = req.body;
+  if (!nickname || !rating || !content) {
+    return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "닉네임, 별점, 후기는 필수입니다."));
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO reviews (bakery_id, nickname, rating, content, image_data) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [bakeryId, nickname.trim(), parseFloat(rating), content.trim(), imageData || null]
+    );
+    res.json(responseWrapper("SUCCESS", "리뷰가 등록되었습니다.", { id: result.rows[0].id }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
 });
 
 // 관리자 - 빵집 전체 목록 조회
