@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../theme/app_colors.dart';
+import '../utils/favorites_service.dart';
 import '../widgets/bakery_list_item.dart';
 import 'bakery_detail_screen.dart';
 
@@ -39,15 +40,16 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   Future<void> _loadFavorites() async {
     setState(() => _isLoading = true);
-    final response = await _repository.getFavorites();
+    final ids = await FavoritesService.getIds();
+    final results = await Future.wait(
+      ids.map((id) => _repository.getBakeryDetail(id)),
+    );
     setState(() {
       _isLoading = false;
-      _favorites = response.isSuccess && response.data != null
-          ? response.data!
-          : [
-              Bakery(id: 1, name: '성심당 본점', address: '대전광역시 중구 은행동 145', latitude: 36.3271, longitude: 127.4275, rating: 4.8, reviewCount: 1523, distance: 0.35, isFavorite: true),
-              Bakery(id: 2, name: '빵긍정',      address: '대전광역시 서구 둔산동 920',  latitude: 36.3500, longitude: 127.3800, rating: 4.6, reviewCount: 342,  distance: 0.62, isFavorite: true),
-            ];
+      _favorites = results
+          .where((r) => r.isSuccess && r.data != null)
+          .map((r) => r.data!)
+          .toList();
     });
     if (_favorites.isNotEmpty) _listAnimController.forward(from: 0);
   }

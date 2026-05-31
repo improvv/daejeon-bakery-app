@@ -5,6 +5,7 @@ import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../models/review.dart';
 import '../theme/app_colors.dart';
+import '../utils/favorites_service.dart';
 import '../utils/time_utils.dart';
 import '../widgets/image_slider.dart';
 import '../widgets/review_item.dart';
@@ -47,29 +48,18 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
 
   Future<void> _loadBakeryDetail() async {
     setState(() => _isLoading = true);
-    final response = await _repository.getBakeryDetail(widget.bakeryId);
+    final results = await Future.wait([
+      _repository.getBakeryDetail(widget.bakeryId),
+      FavoritesService.isFavorite(widget.bakeryId),
+    ]);
+    final response = results[0] as dynamic;
+    final isFav = results[1] as bool;
     setState(() {
       _isLoading = false;
       if (response.isSuccess && response.data != null) {
         _bakery = response.data;
-        _isFavorite = response.data!.isFavorite;
-      } else {
-        _bakery = Bakery(
-          id: widget.bakeryId,
-          name: '성심당 본점',
-          address: '대전광역시 중구 은행동 145',
-          latitude: 36.3271, longitude: 127.4275,
-          phoneNumber: '042-256-7730',
-          description: '대전을 대표하는 베이커리입니다.',
-          imageUrls: [],
-          rating: 4.8, reviewCount: 1523, distance: 0.35,
-          openingHours: '매일 08:00 - 20:00',
-          specialMenu: '튀김소보루, 부추빵, 판도로, 앙버터바게트',
-          amenities: ['PARKING', 'WIFI', 'PACKING'],
-          isFavorite: false,
-        );
-        _isFavorite = false;
       }
+      _isFavorite = isFav;
     });
   }
 
@@ -87,12 +77,8 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
 
   Future<void> _toggleFavorite() async {
     HapticFeedback.lightImpact();
-    final response = await _repository.toggleFavorite(widget.bakeryId);
-    setState(() {
-      _isFavorite = response.isSuccess && response.data != null
-          ? response.data!
-          : !_isFavorite;
-    });
+    final isFav = await FavoritesService.toggle(widget.bakeryId);
+    setState(() => _isFavorite = isFav);
     if (!mounted) return;
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
