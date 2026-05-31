@@ -11,10 +11,10 @@ class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({Key? key, this.onNavigateToTab}) : super(key: key);
 
   @override
-  State<FavoritesScreen> createState() => _FavoritesScreenState();
+  State<FavoritesScreen> createState() => FavoritesScreenState();
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen>
+class FavoritesScreenState extends State<FavoritesScreen>
     with SingleTickerProviderStateMixin {
   final BakeryRepository _repository = BakeryRepository();
   List<Bakery> _favorites = [];
@@ -37,6 +37,8 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     _listAnimController.dispose();
     super.dispose();
   }
+
+  Future<void> loadFavorites() => _loadFavorites();
 
   Future<void> _loadFavorites() async {
     setState(() => _isLoading = true);
