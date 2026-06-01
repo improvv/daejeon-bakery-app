@@ -42,6 +42,7 @@ class _BakeryListItemState extends State<BakeryListItem>
   Widget build(BuildContext context) {
     final open = isOpenNow(widget.bakery.openingHours);
     final hasHours = widget.bakery.openingHours != null;
+    final menuTag = _getMenuTag(widget.bakery);
 
     return GestureDetector(
       onTapDown: (_) => _pressController.forward(),
@@ -174,12 +175,9 @@ class _BakeryListItemState extends State<BakeryListItem>
                               ),
                             ),
                           ),
-                        if (hasHours &&
-                            widget.bakery.specialMenu != null &&
-                            widget.bakery.specialMenu!.isNotEmpty)
+                        if (hasHours && menuTag != null)
                           const SizedBox(width: 6),
-                        if (widget.bakery.specialMenu != null &&
-                            widget.bakery.specialMenu!.isNotEmpty)
+                        if (menuTag != null)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
@@ -187,7 +185,7 @@ class _BakeryListItemState extends State<BakeryListItem>
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Text(
-                              _getTag(widget.bakery),
+                              menuTag,
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.caramel,
@@ -207,10 +205,14 @@ class _BakeryListItemState extends State<BakeryListItem>
     );
   }
 
-  String _getTag(Bakery bakery) {
-    if (bakery.rating >= 4.7) return '대전 대표';
-    if (bakery.reviewCount > 500) return '인기';
-    if (bakery.specialMenu?.contains('수제') == true) return '수제빵';
-    return '동네빵집';
+  String? _getMenuTag(Bakery bakery) {
+    if (bakery.specialMenu == null || bakery.specialMenu!.isEmpty) return null;
+    final menus = bakery.specialMenu!
+        .split(',')
+        .map((m) => m.trim())
+        .where((m) => m.isNotEmpty)
+        .take(4)
+        .toList();
+    return menus.isEmpty ? null : menus.join(' · ');
   }
 }
