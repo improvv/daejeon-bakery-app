@@ -147,7 +147,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Future<void> _loadBakeries({double lat = 36.3504, double lon = 127.3845}) async {
     setState(() => _isLoading = true);
-    final response = await _repository.getBakeries(latitude: lat, longitude: lon, radius: 15);
+    final response = await _repository.getBakeries(latitude: lat, longitude: lon, radius: 10);
     setState(() {
       _isLoading = false;
       _bakeries = response.isSuccess && response.data != null ? response.data! : [];
