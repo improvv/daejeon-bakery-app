@@ -127,9 +127,22 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
   }
 
   Future<void> _makePhoneCall() async {
-    if (_bakery?.phoneNumber == null) return;
+    if (_bakery?.phoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('전화번호 정보가 없습니다')),
+      );
+      return;
+    }
     final uri = Uri(scheme: 'tel', path: _bakery!.phoneNumber);
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    try {
+      await launchUrl(uri);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('전화 연결 실패: ${_bakery!.phoneNumber}')),
+        );
+      }
+    }
   }
 
   void _openMap() {
