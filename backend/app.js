@@ -144,6 +144,11 @@ app.get('/api/v1/bakeries', async (req, res) => {
     return res.status(400).json(responseWrapper("ERROR_MISSING_PARAM", "위도(lat)와 경도(lon)는 필수입니다."));
   }
 
+  // 앱 첫 로드 시(검색 아닐 때)만 방문 기록
+  if (!keyword) {
+    pool.query('INSERT INTO visits (visited_at) VALUES (NOW())').catch(() => {});
+  }
+
   const userLat = parseFloat(lat);
   const userLon = parseFloat(lon);
   const radiusKm = parseFloat(radius);
