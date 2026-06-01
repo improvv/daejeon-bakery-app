@@ -66,14 +66,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     if (_showOpenOnly) {
       list = list.where((b) => isOpenNow(b.openingHours)).toList();
     }
-    switch (_selectedSort) {
-      case '평점 높은순':
-        list.sort((a, b) => (b.rating).compareTo(a.rating));
-      case '리뷰 많은순':
-        list.sort((a, b) => b.reviewCount.compareTo(a.reviewCount));
-      default:
-        list.sort((a, b) => (a.distance ?? 999).compareTo(b.distance ?? 999));
-    }
+    list.sort((a, b) {
+      final aOpen = isOpenNow(a.openingHours) ? 0 : 1;
+      final bOpen = isOpenNow(b.openingHours) ? 0 : 1;
+      if (aOpen != bOpen) return aOpen.compareTo(bOpen);
+      switch (_selectedSort) {
+        case '평점 높은순': return b.rating.compareTo(a.rating);
+        case '리뷰 많은순': return b.reviewCount.compareTo(a.reviewCount);
+        default: return (a.distance ?? 999).compareTo(b.distance ?? 999);
+      }
+    });
     return list;
   }
 
