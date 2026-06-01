@@ -173,7 +173,7 @@ app.get('/api/v1/bakeries', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, name, address, latitude, longitude, rating, opening_hours, photo_reference, description, amenities,
+      `SELECT id, name, address, latitude, longitude, rating, opening_hours, photo_reference, description, amenities, special_menu,
               ${distanceExpr} AS distance
        FROM bakeries ${whereClause} ${orderClause}`,
       params
@@ -195,6 +195,7 @@ app.get('/api/v1/bakeries', async (req, res) => {
       openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
       amenities: row.amenities ?? [],
       description: row.description ?? null,
+      specialMenu: row.special_menu ?? null,
     }));
 
     res.json(responseWrapper("SUCCESS", "요청이 성공하였습니다.", { totalCount: bakeries.length, bakeries }));
@@ -276,6 +277,7 @@ app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
       openingHours: row.opening_hours?.[todayIndex()] ?? row.opening_hours?.[0] ?? null,
       openingHoursAll: row.opening_hours ?? null,
       amenities: row.amenities ?? [],
+      specialMenu: row.special_menu ?? null,
     };
 
     res.json(responseWrapper("SUCCESS", "상세 정보 조회가 성공하였습니다.", data));
