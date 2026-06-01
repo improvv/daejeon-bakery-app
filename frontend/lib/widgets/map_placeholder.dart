@@ -25,6 +25,7 @@ class MapPlaceholder extends StatefulWidget {
 
 class _MapPlaceholderState extends State<MapPlaceholder> {
   GoogleMapController? _mapController;
+  bool _hasCenteredOnUser = false;
 
   static const LatLng _daejeonCenter = LatLng(36.3271, 127.4275);
   static const double _defaultZoom = 14.0;
@@ -39,12 +40,21 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
     _loadCurrentLocationIcon();
   }
 
+  void _moveToUserLocation(LatLng location) {
+    if (_mapController == null || _hasCenteredOnUser) return;
+    _hasCenteredOnUser = true;
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngZoom(location, 15.0),
+    );
+  }
+
   @override
   void didUpdateWidget(MapPlaceholder oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.currentLocation != oldWidget.currentLocation &&
         widget.currentLocation != null) {
       _updateCurrentLocationMarker(widget.currentLocation!);
+      _moveToUserLocation(widget.currentLocation!);
     }
   }
 
@@ -188,6 +198,9 @@ class _MapPlaceholderState extends State<MapPlaceholder> {
       onMapCreated: (controller) {
         _mapController = controller;
         widget.onMapCreated?.call(controller);
+        if (widget.currentLocation != null) {
+          _moveToUserLocation(widget.currentLocation!);
+        }
       },
       myLocationEnabled: false,
       myLocationButtonEnabled: false,
