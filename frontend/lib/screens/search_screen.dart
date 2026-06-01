@@ -238,19 +238,21 @@ class SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildDistrictFilters() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Divider(height: 1, color: AppColors.divider),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              itemCount: DistrictFilter.values.length,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(height: 1, color: AppColors.divider),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 44,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            itemCount: DistrictFilter.values.length,
               itemBuilder: (context, index) {
                 final filter = DistrictFilter.values[index];
                 final isSelected = filter == DistrictFilter.all
@@ -284,7 +286,6 @@ class SearchScreenState extends State<SearchScreen> {
             ),
           ),
         ],
-      ),
     );
   }
 
