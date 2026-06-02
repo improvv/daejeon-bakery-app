@@ -1,6 +1,7 @@
 require('dotenv').config();
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
+const https = require('https');
 const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -316,10 +317,16 @@ app.get('/api/v1/route', async (req, res) => {
   const travelMode = validModes.includes(mode) ? mode : 'walking';
   try {
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&mode=${travelMode}&language=ko&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
     if (data.status !== 'OK' || !data.routes?.length) {
-      return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', '경로를 찾을 수 없습니다.'));
+      console.error('Directions API status:', data.status, data.error_message);
+      return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', `경로를 찾을 수 없습니다. (${data.status})`));
     }
     const route = data.routes[0];
     const leg = route.legs[0];
