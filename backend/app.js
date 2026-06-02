@@ -998,7 +998,12 @@ ${bakeryList}
       request.end();
     });
 
+    if (geminiData.error) {
+      console.error('Gemini API 오류:', JSON.stringify(geminiData.error));
+      throw new Error(`Gemini 오류: ${geminiData.error.message}`);
+    }
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    console.log('Gemini 응답 텍스트:', text.substring(0, 200));
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('JSON 파싱 실패');
     const parsed = JSON.parse(jsonMatch[0]);
