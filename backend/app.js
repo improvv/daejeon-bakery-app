@@ -330,10 +330,33 @@ app.get('/api/v1/route', async (req, res) => {
     }
     const route = data.routes[0];
     const leg = route.legs[0];
+    const steps = leg.steps.map(step => {
+      const base = {
+        instruction: step.html_instructions.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+        distance: step.distance.text,
+        duration: step.duration.text,
+        maneuver: step.maneuver || null,
+      };
+      if (step.transit_details) {
+        const td = step.transit_details;
+        base.transit = {
+          departureStop: td.departure_stop.name,
+          arrivalStop: td.arrival_stop.name,
+          lineName: td.line.short_name || td.line.name,
+          numStops: td.num_stops,
+          vehicleType: td.line.vehicle.type,
+          headsign: td.headsign,
+        };
+      }
+      return base;
+    });
+    const transitCount = steps.filter(s => s.transit).length;
     res.json(responseWrapper('SUCCESS', '경로 조회 성공', {
       points: decodePolyline(route.overview_polyline.points),
       distance: leg.distance.text,
       duration: leg.duration.text,
+      steps,
+      transfers: travelMode === 'transit' ? Math.max(0, transitCount - 1) : null,
     }));
   } catch (err) {
     console.error(err);
