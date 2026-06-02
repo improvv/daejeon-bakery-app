@@ -97,7 +97,6 @@ class _BakeryMapScreenState extends State<BakeryMapScreen> {
           final m = p as Map<String, dynamic>;
           return LatLng((m['lat'] as num).toDouble(), (m['lng'] as num).toDouble());
         }).toList();
-
         setState(() {
           _routePoints = points;
           _distance = data['distance'] as String?;
