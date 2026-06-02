@@ -12,6 +12,21 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return points;
+}
+
 // Google Places 요일 배열 인덱스: 0=월, 1=화, ..., 6=일
 function todayIndex() {
   const day = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getDay();
@@ -289,6 +304,33 @@ app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json(responseWrapper("ERROR_INTERNAL", "서버 오류가 발생했습니다."));
+  }
+});
+
+app.get('/api/v1/route', async (req, res) => {
+  const { originLat, originLon, destLat, destLon, mode = 'walking' } = req.query;
+  if (!originLat || !originLon || !destLat || !destLon) {
+    return res.status(400).json(responseWrapper('ERROR_MISSING_PARAM', '파라미터가 부족합니다.'));
+  }
+  const validModes = ['walking', 'driving', 'transit'];
+  const travelMode = validModes.includes(mode) ? mode : 'walking';
+  try {
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&mode=${travelMode}&language=ko&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status !== 'OK' || !data.routes?.length) {
+      return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', '경로를 찾을 수 없습니다.'));
+    }
+    const route = data.routes[0];
+    const leg = route.legs[0];
+    res.json(responseWrapper('SUCCESS', '경로 조회 성공', {
+      points: decodePolyline(route.overview_polyline.points),
+      distance: leg.distance.text,
+      duration: leg.duration.text,
+    }));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(responseWrapper('ERROR_INTERNAL', '서버 오류가 발생했습니다.'));
   }
 });
 

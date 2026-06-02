@@ -177,6 +177,27 @@ class BakeryRepository {
     return response;
   }
 
+  /// 경로 조회
+  Future<ApiResponse<Map<String, dynamic>>> getRoute({
+    required double originLat,
+    required double originLon,
+    required double destLat,
+    required double destLon,
+    String mode = 'walking',
+  }) async {
+    return _apiClient.get<Map<String, dynamic>>(
+      '/api/v1/route',
+      queryParameters: {
+        'originLat': originLat.toString(),
+        'originLon': originLon.toString(),
+        'destLat': destLat.toString(),
+        'destLon': destLon.toString(),
+        'mode': mode,
+      },
+      fromJson: (json) => json as Map<String, dynamic>,
+    );
+  }
+
   void dispose() {
     _apiClient.dispose();
   }

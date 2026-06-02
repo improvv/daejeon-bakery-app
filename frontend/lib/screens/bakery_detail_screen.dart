@@ -145,7 +145,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
     }
   }
 
-  void _openMap() {
+  void _openMap({bool showRoute = false}) {
     if (_bakery == null) return;
     Navigator.push(
       context,
@@ -155,6 +155,7 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
           address: _bakery!.address,
           latitude: _bakery!.latitude,
           longitude: _bakery!.longitude,
+          showRoute: showRoute,
         ),
       ),
     );
@@ -383,9 +384,9 @@ class _BakeryDetailScreenState extends State<BakeryDetailScreen> {
                       children: [
                         Expanded(child: _buildActionButton(Icons.phone_rounded, '전화', filled: true, onPressed: _makePhoneCall)),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildActionButton(Icons.map_outlined, '지도', filled: false, onPressed: _openMap)),
+                        Expanded(child: _buildActionButton(Icons.map_outlined, '지도', filled: false, onPressed: () => _openMap())),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildActionButton(Icons.share_outlined, '공유', filled: false, onPressed: () {})),
+                        Expanded(child: _buildActionButton(Icons.directions_outlined, '길찾기', filled: false, onPressed: () => _openMap(showRoute: true))),
                       ],
                     ),
 
