@@ -308,55 +308,120 @@ app.get('/api/v1/bakeries/:bakeryId', async (req, res) => {
   }
 });
 
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (resp) => {
+      let body = '';
+      resp.on('data', chunk => body += chunk);
+      resp.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+    }).on('error', reject);
+  });
+}
+
+function fmtDist(meters) {
+  return meters < 1000 ? `${Math.round(meters)}m` : `${(meters / 1000).toFixed(1)}km`;
+}
+
+function fmtDur(seconds) {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins}분`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+}
+
+function osrmManeuver(maneuver) {
+  const { type, modifier } = maneuver;
+  if (type === 'depart' || type === 'arrive') return 'straight';
+  if (type === 'roundabout' || type === 'rotary') return modifier?.includes('left') ? 'roundabout-left' : 'roundabout-right';
+  if (type === 'merge') return 'merge';
+  if (type === 'on ramp') return modifier?.includes('left') ? 'ramp-left' : 'ramp-right';
+  if (modifier === 'left') return 'turn-left';
+  if (modifier === 'right') return 'turn-right';
+  if (modifier === 'slight left') return 'turn-slight-left';
+  if (modifier === 'slight right') return 'turn-slight-right';
+  if (modifier === 'sharp left') return 'turn-sharp-left';
+  if (modifier === 'sharp right') return 'turn-sharp-right';
+  if (modifier === 'uturn') return 'uturn-left';
+  return 'straight';
+}
+
+function osrmInstruction(step) {
+  const { type, modifier } = step.maneuver;
+  const road = step.name ? ` (${step.name})` : '';
+  if (type === 'depart') return `출발${road}`;
+  if (type === 'arrive') return '목적지 도착';
+  const dir = { left:'좌회전', right:'우회전', 'slight left':'좌측으로', 'slight right':'우측으로',
+    'sharp left':'급좌회전', 'sharp right':'급우회전', uturn:'U턴', straight:'직진' }[modifier] || '직진';
+  return `${dir}${road}`;
+}
+
 app.get('/api/v1/route', async (req, res) => {
   const { originLat, originLon, destLat, destLon, mode = 'walking' } = req.query;
   if (!originLat || !originLon || !destLat || !destLon) {
     return res.status(400).json(responseWrapper('ERROR_MISSING_PARAM', '파라미터가 부족합니다.'));
   }
-  const validModes = ['walking', 'driving', 'transit'];
-  const travelMode = validModes.includes(mode) ? mode : 'walking';
+  const travelMode = ['walking', 'driving', 'transit'].includes(mode) ? mode : 'walking';
+
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&mode=${travelMode}&language=ko&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-    const data = await new Promise((resolve, reject) => {
-      https.get(url, (resp) => {
-        let body = '';
-        resp.on('data', chunk => body += chunk);
-        resp.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
-      }).on('error', reject);
-    });
-    if (data.status !== 'OK' || !data.routes?.length) {
-      console.error('Directions API status:', data.status, data.error_message);
-      return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', `경로를 찾을 수 없습니다. (${data.status})`));
+    // 대중교통 → Google Directions API
+    if (travelMode === 'transit') {
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originLat},${originLon}&destination=${destLat},${destLon}&mode=transit&language=ko&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+      const data = await fetchJson(url);
+      if (data.status !== 'OK' || !data.routes?.length) {
+        return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', '경로를 찾을 수 없습니다.'));
+      }
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      const steps = leg.steps.map(step => {
+        const base = {
+          instruction: step.html_instructions.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+          distance: step.distance.text,
+          duration: step.duration.text,
+          maneuver: step.maneuver || null,
+        };
+        if (step.transit_details) {
+          const td = step.transit_details;
+          base.transit = {
+            departureStop: td.departure_stop.name,
+            arrivalStop: td.arrival_stop.name,
+            lineName: td.line.short_name || td.line.name,
+            numStops: td.num_stops,
+            vehicleType: td.line.vehicle.type,
+            headsign: td.headsign,
+          };
+        }
+        return base;
+      });
+      return res.json(responseWrapper('SUCCESS', '경로 조회 성공', {
+        points: decodePolyline(route.overview_polyline.points),
+        distance: leg.distance.text,
+        duration: leg.duration.text,
+        steps,
+        transfers: Math.max(0, steps.filter(s => s.transit).length - 1),
+      }));
+    }
+
+    // 도보/차량 → OSRM (한국 지원)
+    const osrmMode = travelMode === 'driving' ? 'driving' : 'foot';
+    const url = `https://router.project-osrm.org/route/v1/${osrmMode}/${originLon},${originLat};${destLon},${destLat}?overview=full&steps=true&geometries=polyline`;
+    const data = await fetchJson(url);
+    if (data.code !== 'Ok' || !data.routes?.length) {
+      return res.status(404).json(responseWrapper('ERROR_NOT_FOUND', '경로를 찾을 수 없습니다.'));
     }
     const route = data.routes[0];
     const leg = route.legs[0];
-    const steps = leg.steps.map(step => {
-      const base = {
-        instruction: step.html_instructions.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
-        distance: step.distance.text,
-        duration: step.duration.text,
-        maneuver: step.maneuver || null,
-      };
-      if (step.transit_details) {
-        const td = step.transit_details;
-        base.transit = {
-          departureStop: td.departure_stop.name,
-          arrivalStop: td.arrival_stop.name,
-          lineName: td.line.short_name || td.line.name,
-          numStops: td.num_stops,
-          vehicleType: td.line.vehicle.type,
-          headsign: td.headsign,
-        };
-      }
-      return base;
-    });
-    const transitCount = steps.filter(s => s.transit).length;
-    res.json(responseWrapper('SUCCESS', '경로 조회 성공', {
-      points: decodePolyline(route.overview_polyline.points),
-      distance: leg.distance.text,
-      duration: leg.duration.text,
+    const steps = leg.steps.map(step => ({
+      instruction: osrmInstruction(step),
+      distance: fmtDist(step.distance),
+      duration: fmtDur(step.duration),
+      maneuver: osrmManeuver(step.maneuver),
+    }));
+    return res.json(responseWrapper('SUCCESS', '경로 조회 성공', {
+      points: decodePolyline(route.geometry),
+      distance: fmtDist(route.distance),
+      duration: fmtDur(route.duration),
       steps,
-      transfers: travelMode === 'transit' ? Math.max(0, transitCount - 1) : null,
+      transfers: null,
     }));
   } catch (err) {
     console.error(err);
