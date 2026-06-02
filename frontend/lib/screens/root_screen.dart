@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import 'main_screen.dart';
 import 'search_screen.dart';
 import 'favorites_screen.dart';
+import 'chat_screen.dart';
 
 class RootScreen extends StatefulWidget {
   const RootScreen({Key? key}) : super(key: key);
@@ -26,6 +27,7 @@ class _RootScreenState extends State<RootScreen>
       MainScreen(onNavigateToTab: _onItemTapped),
       SearchScreen(key: _searchKey, onNavigateToTab: _onItemTapped),
       FavoritesScreen(key: _favKey, onNavigateToTab: _onItemTapped),
+      const ChatScreen(),
     ];
   }
 
@@ -85,6 +87,7 @@ class _RootScreenState extends State<RootScreen>
               _buildNavItem(0, Icons.map_rounded, Icons.map_outlined, '지도'),
               _buildNavItem(1, Icons.search_rounded, Icons.search_outlined, '검색'),
               _buildNavItem(2, Icons.bookmark_rounded, Icons.bookmark_border_rounded, '즐겨찾기'),
+              _buildNavItem(3, Icons.auto_awesome_rounded, Icons.auto_awesome_outlined, 'AI추천'),
             ],
           ),
         ),
