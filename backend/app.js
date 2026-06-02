@@ -946,6 +946,73 @@ app.patch('/api/v1/admin/bakeries/:bakeryId', async (req, res) => {
   }
 });
 
+app.post('/api/v1/chat', async (req, res) => {
+  const { message } = req.body;
+  if (!message?.trim()) {
+    return res.status(400).json(responseWrapper('ERROR_MISSING_PARAM', '메시지를 입력해주세요.'));
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, name, address, special_menu FROM bakeries
+       WHERE special_menu IS NOT NULL AND special_menu != ''
+       ORDER BY rating DESC NULLS LAST LIMIT 60`
+    );
+
+    const bakeryList = result.rows.map(b => {
+      const district = b.address.split(' ').slice(2, 4).join(' ');
+      return `[ID:${b.id}] ${b.name} (${district}) - 메뉴: ${b.special_menu}`;
+    }).join('\n');
+
+    const prompt = `당신은 대전 빵집 추천 전문가입니다. 사용자의 빵 취향에 맞는 빵집을 아래 목록에서 추천해주세요.
+
+빵집 목록:
+${bakeryList}
+
+사용자: "${message.trim()}"
+
+반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+{"message":"친근한 말투로 추천 이유 설명 (2-3문장)","recommendations":[{"id":숫자,"name":"빵집이름","reason":"이 빵집을 추천하는 이유 한 문장"}]}
+
+규칙: 추천은 최대 3개, 메뉴가 취향과 잘 맞는 곳 위주로 선택하세요.`;
+
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+    });
+
+    const geminiData = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'generativelanguage.googleapis.com',
+        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      };
+      const request = https.request(options, (resp) => {
+        let data = '';
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+      });
+      request.on('error', reject);
+      request.write(body);
+      request.end();
+    });
+
+    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('JSON 파싱 실패');
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    res.json(responseWrapper('SUCCESS', '추천 완료', {
+      message: parsed.message,
+      recommendations: parsed.recommendations ?? [],
+    }));
+  } catch (err) {
+    console.error('Chat error:', err);
+    res.status(500).json(responseWrapper('ERROR_INTERNAL', '추천을 가져오지 못했어요. 잠시 후 다시 시도해주세요.'));
+  }
+});
+
 // 서버 실행
 app.listen(PORT, () => {
   console.log(`서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
