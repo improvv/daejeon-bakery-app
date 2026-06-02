@@ -946,6 +946,22 @@ app.patch('/api/v1/admin/bakeries/:bakeryId', async (req, res) => {
   }
 });
 
+app.get('/api/v1/gemini-models', async (req, res) => {
+  try {
+    const data = await new Promise((resolve, reject) => {
+      https.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`, (resp) => {
+        let body = '';
+        resp.on('data', chunk => body += chunk);
+        resp.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+      }).on('error', reject);
+    });
+    const models = (data.models || []).map(m => m.name);
+    res.json({ models });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/v1/chat', async (req, res) => {
   const { message } = req.body;
   if (!message?.trim()) {
@@ -984,7 +1000,7 @@ ${bakeryList}
     const geminiData = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        path: `/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${process.env.GEMINI_API_KEY}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       };
