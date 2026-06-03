@@ -970,13 +970,13 @@ app.post('/api/v1/chat', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, name, address, special_menu, rating, review_count
+      `SELECT id, name, address, special_menu, rating
        FROM bakeries ORDER BY rating DESC NULLS LAST LIMIT 80`
     );
 
     const bakeryList = result.rows.map(b => {
       const district = b.address.split(' ').slice(2, 4).join(' ');
-      const menu = b.special_menu ? ` | 메뉴: ${b.special_menu}` : '';
+      const menu = b.special_menu ? ` | 메뉴: ${b.special_menu}` : ' | 메뉴정보없음';
       const rating = b.rating ? ` | 별점: ${b.rating}` : '';
       return `[ID:${b.id}] ${b.name} (${district})${menu}${rating}`;
     }).join('\n');
