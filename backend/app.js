@@ -963,23 +963,33 @@ app.get('/api/v1/gemini-models', async (req, res) => {
 });
 
 app.post('/api/v1/chat', async (req, res) => {
-  const { message, history = [] } = req.body;
+  const { message, history = [], userLat, userLon } = req.body;
   if (!message?.trim()) {
     return res.status(400).json(responseWrapper('ERROR_MISSING_PARAM', '메시지를 입력해주세요.'));
   }
 
   try {
+    // 사용자 위치 기준 거리 계산
+    const distanceExpr = userLat && userLon
+      ? `ROUND((6371 * acos(LEAST(1.0, cos(radians(${userLat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${userLon})) + sin(radians(${userLat})) * sin(radians(latitude))))), 1) AS distance`
+      : 'NULL AS distance';
+
     const result = await pool.query(
-      `SELECT id, name, address, special_menu, rating
+      `SELECT id, name, address, special_menu, rating, ${distanceExpr}
        FROM bakeries ORDER BY rating DESC NULLS LAST LIMIT 80`
     );
 
     const bakeryList = result.rows.map(b => {
       const district = b.address.split(' ').slice(2, 4).join(' ');
-      const menu = b.special_menu ? ` | 메뉴: ${b.special_menu}` : ' | 메뉴정보없음';
+      const menu = b.special_menu ? ` | 메뉴: ${b.special_menu}` : '';
       const rating = b.rating ? ` | 별점: ${b.rating}` : '';
-      return `[ID:${b.id}] ${b.name} (${district})${menu}${rating}`;
+      const dist = b.distance != null ? ` | 거리: ${b.distance}km` : '';
+      return `[ID:${b.id}] ${b.name} (${district})${menu}${rating}${dist}`;
     }).join('\n');
+
+    const locationNote = userLat && userLon
+      ? `\n- 사용자 현재 위치 기반 거리 정보가 포함되어 있으므로 가까운 곳을 우선 추천`
+      : '\n- 사용자 위치 정보 없음, 별점 기준으로 추천';
 
     const systemPrompt = `당신은 대전 빵집 추천 전문가 AI입니다. 아래 빵집 목록만을 기반으로 추천하세요.
 
@@ -987,11 +997,9 @@ app.post('/api/v1/chat', async (req, res) => {
 ${bakeryList}
 
 [규칙]
-- 사용자 취향과 메뉴가 잘 맞는 빵집 1~3개 추천
-- 별점 높은 곳 우선 (단, 메뉴 일치가 더 중요)
-- 반드시 아래 JSON 형식으로만 응답 (다른 텍스트 없이)
+- 사용자 취향과 메뉴가 잘 맞는 빵집 1~3개 추천${locationNote}
 - 추천할 빵집이 없으면 recommendations를 빈 배열로
-{"message":"친근하고 구체적인 추천 설명 (2~3문장)","recommendations":[{"id":숫자,"name":"빵집이름","reason":"메뉴와 취향이 맞는 구체적인 이유"}]}`;
+- 반드시 JSON 형식으로만 응답할 것`;
 
     const contents = [
       ...history.map(h => ({
@@ -1004,7 +1012,28 @@ ${bakeryList}
     const body = JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
-      generationConfig: { temperature: 0.5, maxOutputTokens: 1024 },
+      generationConfig: {
+        temperature: 0.5,
+        maxOutputTokens: 1024,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            message: { type: 'STRING' },
+            recommendations: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  id: { type: 'INTEGER' },
+                  name: { type: 'STRING' },
+                  reason: { type: 'STRING' },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     const callGemini = (model) => new Promise((resolve, reject) => {
