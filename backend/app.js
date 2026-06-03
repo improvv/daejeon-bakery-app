@@ -963,38 +963,48 @@ app.get('/api/v1/gemini-models', async (req, res) => {
 });
 
 app.post('/api/v1/chat', async (req, res) => {
-  const { message } = req.body;
+  const { message, history = [] } = req.body;
   if (!message?.trim()) {
     return res.status(400).json(responseWrapper('ERROR_MISSING_PARAM', '메시지를 입력해주세요.'));
   }
 
   try {
     const result = await pool.query(
-      `SELECT id, name, address, special_menu FROM bakeries
-       WHERE special_menu IS NOT NULL AND special_menu != ''
-       ORDER BY rating DESC NULLS LAST LIMIT 60`
+      `SELECT id, name, address, special_menu, rating, review_count
+       FROM bakeries ORDER BY rating DESC NULLS LAST LIMIT 80`
     );
 
     const bakeryList = result.rows.map(b => {
       const district = b.address.split(' ').slice(2, 4).join(' ');
-      return `[ID:${b.id}] ${b.name} (${district}) - 메뉴: ${b.special_menu}`;
+      const menu = b.special_menu ? ` | 메뉴: ${b.special_menu}` : '';
+      const rating = b.rating ? ` | 별점: ${b.rating}` : '';
+      return `[ID:${b.id}] ${b.name} (${district})${menu}${rating}`;
     }).join('\n');
 
-    const prompt = `당신은 대전 빵집 추천 전문가입니다. 사용자의 빵 취향에 맞는 빵집을 아래 목록에서 추천해주세요.
+    const systemPrompt = `당신은 대전 빵집 추천 전문가 AI입니다. 아래 빵집 목록만을 기반으로 추천하세요.
 
-빵집 목록:
+[빵집 목록]
 ${bakeryList}
 
-사용자: "${message.trim()}"
+[규칙]
+- 사용자 취향과 메뉴가 잘 맞는 빵집 1~3개 추천
+- 별점 높은 곳 우선 (단, 메뉴 일치가 더 중요)
+- 반드시 아래 JSON 형식으로만 응답 (다른 텍스트 없이)
+- 추천할 빵집이 없으면 recommendations를 빈 배열로
+{"message":"친근하고 구체적인 추천 설명 (2~3문장)","recommendations":[{"id":숫자,"name":"빵집이름","reason":"메뉴와 취향이 맞는 구체적인 이유"}]}`;
 
-반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-{"message":"친근한 말투로 추천 이유 설명 (2-3문장)","recommendations":[{"id":숫자,"name":"빵집이름","reason":"이 빵집을 추천하는 이유 한 문장"}]}
-
-규칙: 추천은 최대 3개, 메뉴가 취향과 잘 맞는 곳 위주로 선택하세요.`;
+    const contents = [
+      ...history.map(h => ({
+        role: h.isUser ? 'user' : 'model',
+        parts: [{ text: h.text }],
+      })),
+      { role: 'user', parts: [{ text: message.trim() }] },
+    ];
 
     const body = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents,
+      generationConfig: { temperature: 0.5, maxOutputTokens: 1024 },
     });
 
     const callGemini = (model) => new Promise((resolve, reject) => {
