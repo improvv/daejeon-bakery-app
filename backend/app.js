@@ -997,29 +997,38 @@ ${bakeryList}
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
     });
 
-    const geminiData = await new Promise((resolve, reject) => {
+    const callGemini = () => new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       };
-      const request = https.request(options, (resp) => {
+      const req = https.request(options, (resp) => {
         let data = '';
         resp.on('data', chunk => data += chunk);
         resp.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
       });
-      request.on('error', reject);
-      request.write(body);
-      request.end();
+      req.on('error', reject);
+      req.write(body);
+      req.end();
     });
 
-    if (geminiData.error) {
-      console.error('Gemini API 오류:', JSON.stringify(geminiData.error));
-      throw new Error(`Gemini 오류: ${geminiData.error.message}`);
+    let geminiData;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      geminiData = await callGemini();
+      if (!geminiData.error) break;
+      const code = geminiData.error.code;
+      if ((code === 429 || code === 503) && attempt < 3) {
+        console.log(`Gemini 재시도 ${attempt}/3...`);
+        await new Promise(r => setTimeout(r, attempt * 2000));
+      } else {
+        console.error('Gemini API 오류:', geminiData.error.message);
+        throw new Error(`Gemini 오류: ${geminiData.error.message}`);
+      }
     }
+
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    console.log('Gemini 응답 텍스트:', text.substring(0, 200));
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('JSON 파싱 실패');
     const parsed = JSON.parse(jsonMatch[0]);
