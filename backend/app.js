@@ -997,10 +997,10 @@ ${bakeryList}
       generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
     });
 
-    const callGemini = () => new Promise((resolve, reject) => {
+    const callGemini = (model) => new Promise((resolve, reject) => {
       const options = {
         hostname: 'generativelanguage.googleapis.com',
-        path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        path: `/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
       };
@@ -1014,18 +1014,26 @@ ${bakeryList}
       req.end();
     });
 
-    let geminiData;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      geminiData = await callGemini();
-      if (!geminiData.error) break;
-      const code = geminiData.error.code;
-      if ((code === 429 || code === 503) && attempt < 3) {
-        console.log(`Gemini 재시도 ${attempt}/3...`);
-        await new Promise(r => setTimeout(r, attempt * 2000));
-      } else {
-        console.error('Gemini API 오류:', geminiData.error.message);
-        throw new Error(`Gemini 오류: ${geminiData.error.message}`);
+    const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+    let geminiData = null;
+    for (const model of models) {
+      let success = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const result = await callGemini(model);
+        if (!result.error) { geminiData = result; success = true; break; }
+        const code = result.error.code;
+        if ((code === 429 || code === 503) && attempt < 2) {
+          console.log(`${model} 재시도...`);
+          await new Promise(r => setTimeout(r, 3000));
+        } else {
+          console.log(`${model} 실패 (${code}), 다음 모델 시도`);
+          break;
+        }
       }
+      if (success) break;
+    }
+    if (!geminiData || geminiData.error) {
+      throw new Error('모든 모델 시도 실패: ' + (geminiData?.error?.message ?? '알 수 없는 오류'));
     }
 
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
