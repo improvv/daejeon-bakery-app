@@ -50,7 +50,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _fetchLocation() async {
     try {
-      final permission = await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
       if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
@@ -157,11 +160,22 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.auto_awesome_rounded, color: AppColors.caramel, size: 20),
-            SizedBox(width: 8),
-            Text('AI 빵집 추천', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            const Icon(Icons.auto_awesome_rounded, color: AppColors.caramel, size: 20),
+            const SizedBox(width: 8),
+            const Text('AI 빵집 추천', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            const Spacer(),
+            Icon(
+              _userLat != null ? Icons.location_on_rounded : Icons.location_off_rounded,
+              size: 16,
+              color: _userLat != null ? AppColors.openGreen : AppColors.textHint,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              _userLat != null ? '위치 수신됨' : '위치 없음',
+              style: TextStyle(fontSize: 11, color: _userLat != null ? AppColors.openGreen : AppColors.textHint),
+            ),
           ],
         ),
         bottom: const PreferredSize(
