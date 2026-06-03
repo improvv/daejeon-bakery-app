@@ -58,7 +58,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final response = await _apiClient.post<Map<String, dynamic>>(
       '/api/v1/chat',
-      body: {'message': text},
+      body: {
+        'message': text,
+        'history': _messages
+            .where((m) => !m.recommendations.isNotEmpty || m.isUser)
+            .skip(1) // 첫 번째 인삿말 제외
+            .map((m) => {'isUser': m.isUser, 'text': m.text})
+            .toList(),
+      },
       fromJson: (json) => json as Map<String, dynamic>,
     );
 
