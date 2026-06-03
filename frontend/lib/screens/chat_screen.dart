@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../api/api_client.dart';
 import '../theme/app_colors.dart';
 import 'bakery_detail_screen.dart';
@@ -31,6 +32,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _lastUserMessage;
+  double? _userLat;
+  double? _userLon;
 
   final List<_Message> _messages = [
     _Message(
@@ -38,6 +41,24 @@ class _ChatScreenState extends State<ChatScreen> {
       text: '안녕하세요! 저는 대전 빵집 추천 AI예요 🍞\n좋아하는 빵이나 취향을 알려주시면 딱 맞는 빵집을 찾아드릴게요!\n\n예) "달달한 케이크류", "크루아상이나 담백한 빵", "앙금빵"',
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+        );
+        if (mounted) setState(() { _userLat = pos.latitude; _userLon = pos.longitude; });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -78,9 +99,11 @@ class _ChatScreenState extends State<ChatScreen> {
         'message': text,
         'history': _messages
             .where((m) => !m.recommendations.isNotEmpty || m.isUser)
-            .skip(1) // 첫 번째 인삿말 제외
+            .skip(1)
             .map((m) => {'isUser': m.isUser, 'text': m.text})
             .toList(),
+        if (_userLat != null) 'userLat': _userLat,
+        if (_userLon != null) 'userLon': _userLon,
       },
       fromJson: (json) => json as Map<String, dynamic>,
     );
