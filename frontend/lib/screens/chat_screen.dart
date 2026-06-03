@@ -14,7 +14,8 @@ class _Message {
   final bool isUser;
   final String text;
   final List<_Recommendation> recommendations;
-  _Message({required this.isUser, required this.text, this.recommendations = const []});
+  final bool isError;
+  _Message({required this.isUser, required this.text, this.recommendations = const [], this.isError = false});
 }
 
 class ChatScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  String? _lastUserMessage;
 
   final List<_Message> _messages = [
     _Message(
@@ -45,15 +47,29 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  Future<void> _retry() async {
+    if (_lastUserMessage == null || _isLoading) return;
+    if (_messages.last.isError) {
+      setState(() => _messages.removeLast());
+    }
+    await _sendMessageWithText(_lastUserMessage!);
+  }
+
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isLoading) return;
+    _inputController.clear();
+    await _sendMessageWithText(text);
+  }
 
+  Future<void> _sendMessageWithText(String text) async {
+    _lastUserMessage = text;
     setState(() {
-      _messages.add(_Message(isUser: true, text: text));
+      if (_messages.isEmpty || _messages.last.text != text || !_messages.last.isUser) {
+        _messages.add(_Message(isUser: true, text: text));
+      }
       _isLoading = true;
     });
-    _inputController.clear();
     _scrollToBottom();
 
     final response = await _apiClient.post<Map<String, dynamic>>(
@@ -91,7 +107,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     } else {
       setState(() {
-        _messages.add(_Message(isUser: false, text: '죄송해요, 잠시 후 다시 시도해주세요.'));
+        _messages.add(_Message(isUser: false, text: '죄송해요, 잠시 후 다시 시도해주세요.', isError: true));
         _isLoading = false;
       });
     }
@@ -189,13 +205,40 @@ class _ChatScreenState extends State<ChatScreen> {
                       BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
                   ),
-                  child: Text(
-                    message.text,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.6,
-                      color: message.isUser ? Colors.white : AppColors.textPrimary,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        message.text,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: message.isUser ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                      if (message.isError) ...[
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _retry,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.crustBrown,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text('다시 시도', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
