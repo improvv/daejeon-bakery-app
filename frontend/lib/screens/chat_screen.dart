@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import '../api/api_client.dart';
 import '../theme/app_colors.dart';
+import '../utils/location_service.dart';
 import 'bakery_detail_screen.dart';
 
 class _Recommendation {
@@ -49,6 +50,15 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _fetchLocation() async {
+    // 지도 화면에서 이미 받아온 위치 재사용
+    if (LocationService.instance.hasLocation) {
+      setState(() {
+        _userLat = LocationService.instance.lat;
+        _userLon = LocationService.instance.lon;
+      });
+      return;
+    }
+    // 캐시 없으면 직접 요청
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -58,6 +68,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
         );
+        LocationService.instance.lat = pos.latitude;
+        LocationService.instance.lon = pos.longitude;
         if (mounted) setState(() { _userLat = pos.latitude; _userLon = pos.longitude; });
       }
     } catch (_) {}
