@@ -5,6 +5,7 @@ import '../api/bakery_repository.dart';
 import '../models/bakery.dart';
 import '../theme/app_colors.dart';
 import '../utils/time_utils.dart';
+import '../utils/location_service.dart';
 import '../widgets/bakery_list_item.dart';
 import '../widgets/map_placeholder.dart';
 import 'bakery_detail_screen.dart';
@@ -113,6 +114,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
         );
         final current = LatLng(position.latitude, position.longitude);
+        LocationService.instance.lat = position.latitude;
+        LocationService.instance.lon = position.longitude;
         setState(() => _currentLocation = current);
         await _loadBakeries(lat: position.latitude, lon: position.longitude);
         return;
