@@ -971,7 +971,7 @@ app.post('/api/v1/chat', async (req, res) => {
   try {
     // 사용자 위치 기준 거리 계산
     const distanceExpr = userLat && userLon
-      ? `ROUND((6371 * acos(LEAST(1.0, cos(radians(${userLat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${userLon})) + sin(radians(${userLat})) * sin(radians(latitude))))), 1) AS distance`
+      ? `ROUND((6371 * acos(LEAST(1.0, cos(radians(${userLat})) * cos(radians(latitude)) * cos(radians(longitude) - radians(${userLon})) + sin(radians(${userLat})) * sin(radians(latitude)))))::numeric, 1) AS distance`
       : 'NULL AS distance';
 
     const result = await pool.query(
