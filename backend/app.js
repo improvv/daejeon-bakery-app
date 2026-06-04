@@ -997,7 +997,9 @@ app.post('/api/v1/chat', async (req, res) => {
 ${bakeryList}
 
 [규칙]
-- 사용자 취향과 메뉴가 잘 맞는 빵집 1~3개 추천${locationNote}
+- 사용자 취향과 메뉴가 잘 맞는 빵집 최대 5개 추천${locationNote}
+- 사용자가 5개 초과를 요청해도 반드시 최대 5개까지만 추천
+- reason은 1~2문장으로 간결하게 작성
 - 추천할 빵집이 없으면 recommendations를 빈 배열로
 - 반드시 JSON 형식으로만 응답할 것`;
 
@@ -1014,7 +1016,7 @@ ${bakeryList}
       contents,
       generationConfig: {
         temperature: 0.5,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 4096,
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
@@ -1022,6 +1024,7 @@ ${bakeryList}
             message: { type: 'STRING' },
             recommendations: {
               type: 'ARRAY',
+              maxItems: 5,
               items: {
                 type: 'OBJECT',
                 properties: {
@@ -1053,17 +1056,19 @@ ${bakeryList}
       req.end();
     });
 
-    const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+    // 429/503 시 지수 백오프 + 3개 모델 폴백
+    const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let geminiData = null;
     for (const model of models) {
       let success = false;
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         const result = await callGemini(model);
         if (!result.error) { geminiData = result; success = true; break; }
         const code = result.error.code;
-        if ((code === 429 || code === 503) && attempt < 2) {
-          console.log(`${model} 재시도...`);
-          await new Promise(r => setTimeout(r, 3000));
+        if ((code === 429 || code === 503) && attempt < 3) {
+          const delay = attempt * 4000; // 4s, 8s
+          console.log(`${model} 재시도 (${delay / 1000}s 후)...`);
+          await new Promise(r => setTimeout(r, delay));
         } else {
           console.log(`${model} 실패 (${code}), 다음 모델 시도`);
           break;
@@ -1077,8 +1082,20 @@ ${bakeryList}
 
     const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('JSON 파싱 실패');
-    const parsed = JSON.parse(jsonMatch[0]);
+    if (!jsonMatch) throw new Error('JSON 파싱 실패: 응답에 JSON 없음');
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      // JSON이 잘린 경우 recommendations 배열만 복구 시도
+      console.log('JSON 파싱 실패, 복구 시도:', parseErr.message);
+      const msgMatch = jsonMatch[0].match(/"message"\s*:\s*"([^"]*)"/);
+      const recMatches = [...jsonMatch[0].matchAll(/"id"\s*:\s*(\d+)[^}]*?"name"\s*:\s*"([^"]*)"[^}]*?"reason"\s*:\s*"([^"]*)"/g)];
+      parsed = {
+        message: msgMatch ? msgMatch[1] : '추천 결과를 가져왔습니다.',
+        recommendations: recMatches.map(m => ({ id: parseInt(m[1]), name: m[2], reason: m[3] })),
+      };
+    }
 
     res.json(responseWrapper('SUCCESS', '추천 완료', {
       message: parsed.message,
