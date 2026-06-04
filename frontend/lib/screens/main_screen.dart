@@ -114,8 +114,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
         );
         final current = LatLng(position.latitude, position.longitude);
-        LocationService.instance.lat = position.latitude;
-        LocationService.instance.lon = position.longitude;
+        LocationService.instance.update(position.latitude, position.longitude);
         setState(() => _currentLocation = current);
         await _loadBakeries(lat: position.latitude, lon: position.longitude);
         return;

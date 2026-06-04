@@ -46,11 +46,22 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // LocationService가 위치를 받으면(MainScreen 포함) 자동으로 갱신
+    LocationService.instance.addListener(_onLocationUpdated);
     _fetchLocation();
   }
 
+  void _onLocationUpdated() {
+    if (LocationService.instance.hasLocation && _userLat == null && mounted) {
+      setState(() {
+        _userLat = LocationService.instance.lat;
+        _userLon = LocationService.instance.lon;
+      });
+    }
+  }
+
   Future<void> _fetchLocation() async {
-    // 지도 화면에서 이미 받아온 위치 재사용
+    // 이미 위치 캐시 있으면 즉시 사용
     if (LocationService.instance.hasLocation) {
       setState(() {
         _userLat = LocationService.instance.lat;
@@ -58,7 +69,17 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       return;
     }
-    // 캐시 없으면 직접 요청
+    // MainScreen과 동시 초기화 경쟁 조건 방지: 잠깐 대기 후 재확인
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    if (LocationService.instance.hasLocation) {
+      setState(() {
+        _userLat = LocationService.instance.lat;
+        _userLon = LocationService.instance.lon;
+      });
+      return;
+    }
+    // 여전히 없으면 직접 요청
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -68,15 +89,14 @@ class _ChatScreenState extends State<ChatScreen> {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
         );
-        LocationService.instance.lat = pos.latitude;
-        LocationService.instance.lon = pos.longitude;
-        if (mounted) setState(() { _userLat = pos.latitude; _userLon = pos.longitude; });
+        LocationService.instance.update(pos.latitude, pos.longitude);
       }
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    LocationService.instance.removeListener(_onLocationUpdated);
     _apiClient.dispose();
     _inputController.dispose();
     _scrollController.dispose();
